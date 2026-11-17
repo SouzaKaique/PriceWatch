@@ -1,0 +1,215 @@
+<div class="page-header">
+  <div>
+    <h1>Alertas no celular</h1>
+    <p class="text-muted-pw small mb-0">
+      Avisos de preço-alvo, quedas, cupons e oportunidades — gratuitos, sem cartão e funcionando fora de casa.
+    </p>
+  </div>
+  <button type="button" class="btn btn-primary btn-sm" (click)="sendTest()"
+    [disabled]="busy() || !(status()?.channels?.telegram?.ready || status()?.channels?.ntfy?.ready)">
+    <i class="bi bi-send me-1"></i>Enviar teste
+  </button>
+</div>
+
+@if (error(); as e) { <div class="alert alert-danger">{{ e }}</div> }
+@if (msg(); as m) {
+  <div class="alert py-2 small" [class.alert-success]="m.ok" [class.alert-warning]="!m.ok" role="status">{{ m.text }}</div>
+}
+
+@if (status(); as st) {
+  <div class="row g-3">
+    <!-- Telegram -->
+    <div class="col-12 col-lg-6">
+      <section class="card h-100 p-3 p-md-4">
+        <div class="d-flex justify-content-between align-items-start mb-2">
+          <h2 class="h5 mb-0"><i class="bi bi-telegram me-2 text-info"></i>Telegram</h2>
+          <span class="badge-soft" [class.green]="st.channels.telegram.ready" [class.muted]="!st.channels.telegram.ready">
+            {{ st.channels.telegram.ready ? 'Ativo' : 'Não configurado' }}
+          </span>
+        </div>
+        <p class="small text-muted-pw">Recomendado: mensagens privadas, com link direto para a oferta.</p>
+        <ol class="small ps-3 d-grid gap-1 mb-3">
+          <li [class.text-muted-pw]="st.channels.telegram.token_configured">
+            No Telegram, abra <strong>@BotFather</strong>, envie <code>/newbot</code> e escolha um nome. Ele responde com um <em>token</em>.
+          </li>
+          <li [class.text-muted-pw]="st.channels.telegram.token_configured">
+            Cole o token em <code>backend/.env</code> → <code>TELEGRAM_BOT_TOKEN=</code> e reinicie o backend.
+            @if (st.channels.telegram.token_configured) { <i class="bi bi-check2 price-down"></i> }
+          </li>
+          <li [class.text-muted-pw]="st.channels.telegram.chat_connected">
+            Abra o seu bot
+            @if (st.channels.telegram.bot_username) { (<strong>&#64;{{ st.channels.telegram.bot_username }}</strong>) }
+            e envie <code>/start</code>.
+          </li>
+          <li>Clique em <strong>Conectar</strong>.
+            @if (st.channels.telegram.chat_connected) { <i class="bi bi-check2 price-down"></i> }
+          </li>
+        </ol>
+        <div class="d-flex gap-2 mt-auto">
+          @if (!st.channels.telegram.chat_connected) {
+            <button type="button" class="btn btn-outline-primary btn-sm" (click)="connectTelegram()" [disabled]="busy() || !st.channels.telegram.token_configured">
+              <i class="bi bi-link-45deg me-1"></i>Conectar
+            </button>
+          } @else {
+            <button type="button" class="btn btn-outline-secondary btn-sm" (click)="connectTelegram()" [disabled]="busy()">Reconectar</button>
+            <button type="button" class="btn btn-outline-danger btn-sm" (click)="disconnectTelegram()" [disabled]="busy()">Desconectar</button>
+          }
+        </div>
+      </section>
+    </div>
+
+    <!-- ntfy -->
+    <div class="col-12 col-lg-6">
+      <section class="card h-100 p-3 p-md-4">
+        <div class="d-flex justify-content-between align-items-start mb-2">
+          <h2 class="h5 mb-0"><i class="bi bi-bell me-2 text-info"></i>ntfy</h2>
+          <span class="badge-soft" [class.green]="st.channels.ntfy.ready" [class.muted]="!st.channels.ntfy.ready">
+            {{ st.channels.ntfy.ready ? 'Ativo' : 'Não configurado' }}
+          </span>
+        </div>
+        <p class="small text-muted-pw">Alternativa sem conta: notificações nativas pelo app gratuito <em>ntfy</em> (Android e iPhone).</p>
+        @if (st.channels.ntfy.ready) {
+          <div class="small mb-2">Tópico em uso: <code class="user-select-all">{{ st.channels.ntfy.topic }}</code>
+            <span class="text-muted-pw">em {{ st.channels.ntfy.server }}</span></div>
+          <p class="small text-muted-pw mb-0">No app ntfy, assine exatamente esse tópico. Não compartilhe: o nome funciona como senha.</p>
+        } @else {
+          <ol class="small ps-3 d-grid gap-1 mb-2">
+            <li>Instale o app <strong>ntfy</strong> no celular.</li>
+            <li>Use um tópico longo e aleatório (funciona como senha). Sugestão:
+              <div class="d-flex gap-2 align-items-center mt-1">
+                <code class="user-select-all">{{ suggestedTopic() }}</code>
+                <button type="button" class="btn btn-link btn-sm p-0" (click)="copyTopic()">{{ topicCopied() ? 'Copiado' : 'Copiar' }}</button>
+              </div>
+            </li>
+            <li>Coloque em <code>backend/.env</code> → <code>NTFY_TOPIC=</code>, reinicie o backend e assine o mesmo tópico no app.</li>
+          </ol>
+          <p class="small text-muted-pw mb-0">Usa o servidor público gratuito ntfy.sh (com limites de envio).</p>
+        }
+      </section>
+    </div>
+
+    <!-- Web Push -->
+    <div class="col-12">
+      <section class="card p-3 p-md-4">
+        <div class="d-flex justify-content-between align-items-start mb-2 gap-2 flex-wrap">
+          <h2 class="h5 mb-0"><i class="bi bi-phone me-2 text-info"></i>Notificações do app (Web Push)</h2>
+          <span class="badge-soft" [class.green]="st.channels.webpush.ready" [class.muted]="!st.channels.webpush.ready">
+            {{ st.channels.webpush.devices }} aparelho(s)
+          </span>
+        </div>
+        @if (swPush.isEnabled) {
+          <p class="small text-muted-pw">
+            Notificação nativa do PRICE WATCH instalado, sem outro app. No iPhone (iOS 16.4+), funciona com o app
+            adicionado à Tela de Início e aberto por lá.
+          </p>
+          @if (pushSub()) {
+            <div class="d-flex gap-2 align-items-center small">
+              <span class="price-down"><i class="bi bi-check2-circle me-1"></i>Ativo neste aparelho</span>
+              <button type="button" class="btn btn-outline-danger btn-sm" (click)="disablePush()" [disabled]="busy()">Desativar</button>
+            </div>
+          } @else {
+            <button type="button" class="btn btn-outline-primary btn-sm" (click)="enablePush()" [disabled]="busy()">
+              <i class="bi bi-bell me-1"></i>Ativar neste aparelho
+            </button>
+          }
+        } @else {
+          <p class="small text-muted-pw mb-0">
+            Indisponível nesta janela:
+            @if (!secure) { o endereço não é seguro (HTTPS). }
+            @else { o service worker está desligado (modo de desenvolvimento). }
+            Abra o app pelo endereço HTTPS do Tailscale no celular (veja o README, seção "Usar no celular") ou
+            pelo build em <code>http://127.0.0.1:5000</code> neste computador.
+          </p>
+        }
+      </section>
+    </div>
+
+    <!-- Preferências -->
+    <div class="col-12 col-lg-7">
+      <section class="card h-100 p-3 p-md-4">
+        <div class="d-flex justify-content-between align-items-center mb-3">
+          <h2 class="eyebrow mb-0">O que avisar</h2>
+          <div class="form-check form-switch m-0">
+            <input class="form-check-input" type="checkbox" role="switch" id="n-enabled" [checked]="st.settings.notify_enabled"
+              (change)="save({ notify_enabled: !st.settings.notify_enabled })" [disabled]="busy()" />
+            <label class="form-check-label small" for="n-enabled">{{ st.settings.notify_enabled ? 'Alertas ligados' : 'Alertas desligados' }}</label>
+          </div>
+        </div>
+        <div class="d-grid gap-2" [class.opacity-50]="!st.settings.notify_enabled">
+          @for (k of kinds; track k.key) {
+            <div class="form-check m-0">
+              <input class="form-check-input" type="checkbox" [id]="'k-' + k.key" [checked]="st.settings.notify_kinds[k.key]"
+                (change)="toggleKind(k.key, !st.settings.notify_kinds[k.key])" [disabled]="busy() || !st.settings.notify_enabled" />
+              <label class="form-check-label small" [for]="'k-' + k.key">
+                {{ k.label }} @if (k.hint) { <span class="text-muted-pw">— {{ k.hint }}</span> }
+              </label>
+            </div>
+          }
+        </div>
+      </section>
+    </div>
+
+    <div class="col-12 col-lg-5">
+      <section class="card h-100 p-3 p-md-4">
+        <h2 class="eyebrow mb-3">Controle de frequência</h2>
+        <div class="form-check form-switch">
+          <input class="form-check-input" type="checkbox" role="switch" id="q-enabled" [checked]="st.settings.notify_quiet_enabled"
+            (change)="save({ notify_quiet_enabled: !st.settings.notify_quiet_enabled })" [disabled]="busy()" />
+          <label class="form-check-label small" for="q-enabled">Horário de silêncio</label>
+        </div>
+        <div class="d-flex gap-2 align-items-center small mt-2">
+          das <input type="time" class="form-control form-control-sm" style="width: 7rem" [value]="st.settings.notify_quiet_start"
+            (change)="save({ notify_quiet_start: value($event) })" aria-label="Início do silêncio" />
+          às <input type="time" class="form-control form-control-sm" style="width: 7rem" [value]="st.settings.notify_quiet_end"
+            (change)="save({ notify_quiet_end: value($event) })" aria-label="Fim do silêncio" />
+        </div>
+        <p class="small text-muted-pw mt-1">Alertas desse período são enviados quando o silêncio termina.</p>
+        <label class="form-label mt-2" for="max-h">Máximo de alertas por hora</label>
+        <input id="max-h" type="number" min="1" max="60" class="form-control form-control-sm" style="width: 6rem"
+          [value]="st.settings.notify_max_per_hour" (change)="save({ notify_max_per_hour: +value($event) })" />
+        <p class="small text-muted-pw mt-2 mb-0">
+          O mesmo alerta (mesmo produto, tipo e preço) não se repete em 24 h; oscilações pequenas nem viram alerta.
+          Alertas com mais de 24 h não são enviados.
+        </p>
+        @if (st.pending) {
+          <div class="small mt-3">
+            <span class="badge-soft orange">{{ st.pending }} pendente(s)</span>
+            <button type="button" class="btn btn-link btn-sm" (click)="dispatchNow()" [disabled]="busy()">Enviar agora</button>
+          </div>
+        }
+      </section>
+    </div>
+
+    <!-- Histórico -->
+    <div class="col-12">
+      <section class="card">
+        <div class="p-3 p-md-4 pb-2"><h2 class="eyebrow mb-0">Últimos envios</h2></div>
+        <div class="table-responsive">
+          <table class="table align-middle small">
+            <thead><tr><th class="ps-3 ps-md-4">Quando</th><th>Canal</th><th>Alerta</th><th class="pe-3 pe-md-4">Resultado</th></tr></thead>
+            <tbody>
+              @for (l of log(); track l.id) {
+                <tr>
+                  <td class="ps-3 ps-md-4 text-nowrap">{{ l.created_at | date: 'dd/MM HH:mm' }}</td>
+                  <td>{{ channelLabel[l.channel ?? ''] ?? l.channel }}</td>
+                  <td>
+                    <div class="fw-medium">{{ l.title }}</div>
+                    @if (l.body) { <div class="text-muted-pw text-truncate" style="max-width: 32rem" [title]="l.body">{{ l.body }}</div> }
+                  </td>
+                  <td class="pe-3 pe-md-4">
+                    @if (l.delivered) { <span class="badge-soft green">Enviado</span> }
+                    @else { <span class="badge-soft red" [title]="l.error ?? ''">Falhou</span> }
+                  </td>
+                </tr>
+              } @empty {
+                <tr><td colspan="4" class="text-center text-muted-pw py-4">Nenhum alerta enviado ainda.</td></tr>
+              }
+            </tbody>
+          </table>
+        </div>
+      </section>
+    </div>
+  </div>
+} @else if (loading()) {
+  <div class="text-center py-5 text-muted-pw"><span class="spinner-border spinner-border-sm me-2"></span>Carregando…</div>
+}

@@ -1,0 +1,193 @@
+<div class="d-flex align-items-center justify-content-between mb-4 gap-3 flex-wrap">
+  <div>
+    <h1 class="h4 mb-1">Sistema</h1>
+    <p class="text-muted-pw mb-0 small">Saúde do app, monitoramento automático e suas configurações.</p>
+  </div>
+  <button type="button" class="btn btn-outline-secondary btn-sm" (click)="refresh()" [disabled]="loading()">
+    @if (loading()) {
+      <span class="spinner-border spinner-border-sm me-1" aria-hidden="true"></span>
+    } @else {
+      <i class="bi bi-arrow-clockwise me-1"></i>
+    }
+    Testar conexão
+  </button>
+</div>
+
+@if (error(); as msg) {
+  <div class="alert alert-danger d-flex gap-2 align-items-start" role="alert">
+    <i class="bi bi-exclamation-octagon"></i>
+    <div>{{ msg }}</div>
+  </div>
+}
+
+<div class="row g-3">
+  <div class="col-12 col-md-6">
+    <div class="card h-100">
+      <div class="card-body">
+        <div class="label mb-3">Serviços</div>
+        <ul class="list-unstyled mb-0 d-grid gap-2">
+          <li class="d-flex justify-content-between align-items-center">
+            <span>API Flask</span>
+            <span class="d-flex align-items-center gap-2">
+              <span class="status-dot" [class.ok]="health()" [class.error]="error()"></span>
+              {{ health() ? 'online · v' + health()!.version : error() ? 'offline' : '…' }}
+            </span>
+          </li>
+          <li class="d-flex justify-content-between align-items-center">
+            <span>Banco SQLite</span>
+            <span class="d-flex align-items-center gap-2">
+              <span class="status-dot" [class.ok]="health()?.database === 'ok'"
+                [class.error]="error() || (health() && health()!.database !== 'ok')"></span>
+              {{ health()?.database ?? (error() ? 'indisponível' : '…') }}
+            </span>
+          </li>
+          <li class="d-flex justify-content-between align-items-center">
+            <span>Agendador</span>
+            <span class="d-flex align-items-center gap-2">
+              @if (monitor(); as m) {
+                <span class="status-dot" [class.ok]="m.scheduler_active && !m.paused" [class.error]="!m.scheduler_active"></span>
+                {{ !m.scheduler_active ? 'parado' : m.paused ? 'pausado' : m.running ? 'verificando…' : 'ativo' }}
+              } @else { — }
+            </span>
+          </li>
+          <li class="d-flex justify-content-between align-items-center">
+            <span>Próxima verificação</span>
+            <span class="tabular">{{ monitor()?.next_run_at ? (monitor()!.next_run_at | date: 'dd/MM HH:mm') : '—' }}</span>
+          </li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-12 col-md-6">
+    <div class="card h-100">
+      <div class="card-body">
+        <div class="label mb-3">Dados armazenados</div>
+        <div class="row text-center g-2">
+          <div class="col-4"><div class="metric tabular">{{ stats()?.products ?? '—' }}</div><div class="small text-muted-pw">produtos</div></div>
+          <div class="col-4"><div class="metric tabular">{{ stats()?.offers ?? '—' }}</div><div class="small text-muted-pw">ofertas</div></div>
+          <div class="col-4"><div class="metric tabular">{{ stats()?.stores ?? '—' }}</div><div class="small text-muted-pw">lojas</div></div>
+        </div>
+        <hr class="my-3" />
+        <div class="small text-muted-pw">
+          Última consulta de preço:
+          <span class="text-body">{{ stats()?.last_check_at ? (stats()!.last_check_at | date: 'dd/MM/yyyy HH:mm') : 'nenhuma ainda' }}</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  @if (diagnostics().length) {
+    <div class="col-12">
+      <section class="card p-3 p-md-4">
+        <div class="label mb-3">Diagnóstico</div>
+        <ul class="list-unstyled mb-0 d-grid gap-2">
+          @for (d of diagnostics(); track d.key) {
+            <li class="d-flex gap-2 small">
+              <i class="bi" [class.bi-check-circle-fill]="d.status === 'ok'" [class.price-down]="d.status === 'ok'"
+                [class.bi-exclamation-circle-fill]="d.status === 'warn'" [class.text-warning]="d.status === 'warn'"
+                [class.bi-x-octagon-fill]="d.status === 'error'" [class.price-up]="d.status === 'error'"
+                [attr.aria-label]="d.status === 'ok' ? 'ok' : d.status === 'warn' ? 'atenção' : 'erro'"></i>
+              <div>
+                <strong>{{ d.label }}:</strong> {{ d.detail }}
+                @if (d.hint) { <div class="text-muted-pw">{{ d.hint }}</div> }
+              </div>
+            </li>
+          }
+        </ul>
+      </section>
+    </div>
+  }
+
+  @if (settings(); as cfg) {
+    <div class="col-12">
+      <section class="card p-3 p-md-4">
+        <div class="d-flex justify-content-between align-items-start flex-wrap gap-2 mb-3">
+          <div class="label">Monitoramento automático</div>
+          <button type="button" class="btn btn-primary btn-sm" (click)="runNow()" [disabled]="monitor()?.running">
+            <i class="bi bi-arrow-repeat me-1" [class.spin]="monitor()?.running"></i>
+            {{ monitor()?.running ? 'Verificando…' : 'Verificar agora' }}
+          </button>
+        </div>
+        <div class="row g-3 align-items-end">
+          <div class="col-12 col-md-3">
+            <div class="form-check form-switch">
+              <input class="form-check-input" type="checkbox" role="switch" id="mon-enabled" [checked]="cfg.monitor_enabled"
+                (change)="save({ monitor_enabled: !cfg.monitor_enabled })" [disabled]="saving()" />
+              <label class="form-check-label" for="mon-enabled">{{ cfg.monitor_enabled ? 'Ativado' : 'Pausado' }}</label>
+            </div>
+          </div>
+          <div class="col-6 col-md-3">
+            <label class="form-label" for="interval">Verificar a cada</label>
+            <select id="interval" class="form-select form-select-sm" [value]="cfg.check_interval_minutes"
+              (change)="save({ check_interval_minutes: +value($event) })" [disabled]="saving()">
+              @for (i of intervals; track i) {
+                <option [value]="i" [selected]="i === cfg.check_interval_minutes">{{ intervalLabel(i) }}</option>
+              }
+            </select>
+          </div>
+          <div class="col-6 col-md-2">
+            <label class="form-label" for="pct">Variação mínima (%)</label>
+            <input #pct id="pct" class="form-control form-control-sm tabular" inputmode="decimal" [value]="cfg.min_change_percent" />
+          </div>
+          <div class="col-6 col-md-2">
+            <label class="form-label" for="cents">e no mínimo (R$)</label>
+            <input id="cents" class="form-control form-control-sm tabular" inputmode="decimal" [value]="minChangeReais()"
+              (input)="minChangeReais.set(value($event))" />
+          </div>
+          <div class="col-6 col-md-2">
+            <button type="button" class="btn btn-outline-primary btn-sm w-100" (click)="saveThresholds(pct.value)" [disabled]="saving()">Salvar limites</button>
+          </div>
+        </div>
+        @if (saveMsg(); as m) {
+          <div class="small mt-2" [class.price-down]="m.ok" [class.text-danger]="!m.ok">{{ m.text }}</div>
+        }
+        <p class="small text-muted-pw mt-3 mb-0">
+          O monitoramento roda no seu computador enquanto o backend estiver aberto. Com o PC desligado, as
+          verificações ficam pausadas; ao religar, uma verificação de retomada acontece em ~1 minuto se a última
+          estiver atrasada. Mudanças menores que os limites acima não geram alertas.
+        </p>
+      </section>
+    </div>
+  }
+
+  @if (monitor(); as m) {
+    <div class="col-12">
+      <section class="card">
+        <div class="p-3 p-md-4 pb-2"><div class="label">Últimas verificações</div></div>
+        <div class="table-responsive">
+          <table class="table align-middle small">
+            <thead>
+              <tr><th class="ps-3 ps-md-4">Início</th><th>Tipo</th><th>Resultado</th><th class="text-end">Consultadas</th><th class="text-end d-none d-sm-table-cell">Falhas</th><th class="text-end d-none d-sm-table-cell">Puladas</th><th class="text-end pe-3 pe-md-4">Alterações</th></tr>
+            </thead>
+            <tbody>
+              @for (r of m.runs; track r.id) {
+                <tr>
+                  <td class="ps-3 ps-md-4">{{ r.started_at | date: 'dd/MM HH:mm' }}</td>
+                  <td>{{ reasonLabel[r.reason] ?? r.reason }}</td>
+                  <td>
+                    @switch (r.status) {
+                      @case ('done') { <span class="badge-soft green">Concluída</span> }
+                      @case ('running') { <span class="badge-soft blue">Em andamento</span> }
+                      @default { <span class="badge-soft red" [title]="r.error ?? ''">Falhou</span> }
+                    }
+                  </td>
+                  <td class="text-end tabular">{{ r.offers_ok }}/{{ r.offers_checked }}</td>
+                  <td class="text-end tabular d-none d-sm-table-cell">{{ r.offers_failed }}</td>
+                  <td class="text-end tabular d-none d-sm-table-cell" title="Lojas em pausa após bloqueio">{{ r.offers_skipped }}</td>
+                  <td class="text-end tabular pe-3 pe-md-4">{{ r.events }}</td>
+                </tr>
+              } @empty {
+                <tr><td colspan="7" class="text-center text-muted-pw py-4">Nenhuma verificação realizada ainda.</td></tr>
+              }
+            </tbody>
+          </table>
+        </div>
+      </section>
+    </div>
+  }
+</div>
+
+@if (checkedAt(); as t) {
+  <p class="small text-muted-pw mt-3 mb-0">Atualizado às {{ t | date: 'HH:mm:ss' }}.</p>
+}

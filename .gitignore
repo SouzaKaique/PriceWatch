@@ -1,0 +1,26 @@
+# Segredos e dados locais
+.env
+backend/instance/
+*.db
+*.db-wal
+*.db-shm
+
+# Python
+backend/.venv/
+__pycache__/
+*.pyc
+
+# Node / Angular
+frontend/node_modules/
+frontend/dist/
+frontend/.angular/
+
+# Editor / SO
+.vscode/*
+!.vscode/extensions.json
+.idea/
+Thumbs.db
+.DS_Store
+
+# Ferramentas locais
+.claude/settings.local.json

@@ -1,0 +1,122 @@
+<div class="page-header">
+  <div>
+    <h1>Integrações</h1>
+    <p class="text-muted-pw small mb-0">
+      Como o PRICE WATCH obtém os preços de cada loja — e o que fazer quando a loja não permite.
+    </p>
+  </div>
+  <button type="button" class="btn btn-outline-secondary btn-sm" (click)="load()" [disabled]="loading()">
+    <i class="bi bi-arrow-clockwise me-1"></i>Atualizar
+  </button>
+</div>
+
+@if (error(); as msg) {
+  <div class="alert alert-danger">{{ msg }}</div>
+}
+
+<div class="row g-3">
+  @for (i of items(); track i.key) {
+    <div class="col-12 col-lg-6">
+      <section class="card h-100 p-3 p-md-4">
+        <div class="d-flex justify-content-between align-items-start gap-2 mb-2">
+          <h2 class="h5 mb-0">{{ i.name }}</h2>
+          <span class="badge-soft"
+            [class.green]="i.state === 'available' || i.state === 'connected'"
+            [class.blue]="i.state === 'app_token'"
+            [class.orange]="i.state === 'limited'"
+            [class.muted]="i.state === 'not_configured'">
+            {{ stateLabel[i.state] }}
+          </span>
+        </div>
+        <div class="small text-muted-pw mb-2"><i class="bi bi-diagram-3 me-1"></i>{{ i.method }}</div>
+
+        @if (i.limitation) {
+          <div class="small text-warning d-flex gap-2 mb-2">
+            <i class="bi bi-shield-exclamation"></i><span>{{ i.limitation }}</span>
+          </div>
+        }
+        @if (i.paused_seconds > 0) {
+          <div class="small text-warning mb-2">
+            <i class="bi bi-pause-circle me-1"></i>Consultas em pausa por mais {{ (i.paused_seconds / 60) | number: '1.0-0' }} min
+            (a loja bloqueou a última tentativa).
+          </div>
+        }
+
+        <div class="small">
+          <span class="text-muted-pw">Ofertas:</span> {{ i.stats.offers }}
+          @for (s of statusEntries(i); track s.key) {
+            <span class="ms-2 text-muted-pw">· {{ s.count }} {{ statusLabel[s.key] ?? s.key }}</span>
+          }
+        </div>
+        <div class="small text-muted-pw">
+          Última consulta bem-sucedida:
+          <span class="text-body">{{ i.stats.last_success_at ? (i.stats.last_success_at | date: 'dd/MM/yyyy HH:mm') : 'nenhuma' }}</span>
+        </div>
+        @if (i.stats.last_error) {
+          <div class="small text-muted-pw mt-1 text-truncate" [title]="i.stats.last_error">Último erro: {{ i.stats.last_error }}</div>
+        }
+
+        @if (i.mercadolivre; as ml) {
+          <hr />
+          @if (!ml.configured) {
+            <h3 class="eyebrow mb-2">Configurar a API oficial (gratuita)</h3>
+            <ol class="small ps-3 mb-0 d-grid gap-1">
+              <li>Acesse <a href="https://developers.mercadolivre.com.br/devcenter" target="_blank" rel="noopener noreferrer">developers.mercadolivre.com.br</a> com sua conta do Mercado Livre e crie um aplicativo. Não há cobrança nem cartão.</li>
+              <li>Em <em>URI de redirect</em>, informe uma URL <strong>https</strong>. Depois de autorizar, o navegador será levado a ela com <code>?code=…</code> no endereço — basta copiar.</li>
+              <li>No arquivo <code>backend/.env</code>, preencha <code>ML_CLIENT_ID</code>, <code>ML_CLIENT_SECRET</code> e <code>ML_REDIRECT_URI</code> (idêntica à cadastrada).</li>
+              <li>Reinicie o backend e volte a esta página.</li>
+            </ol>
+            <p class="small text-muted-pw mt-2 mb-0">Sem isso, o PRICE WATCH tenta os dados da página, que o Mercado Livre costuma bloquear.</p>
+          } @else {
+            <p class="small mb-2">
+              @if (ml.user_connected) {
+                <i class="bi bi-check-circle price-down me-1"></i>Usando sua conta autorizada (renovação automática).
+              } @else {
+                Usando o <strong>token de aplicação</strong>. Se a API negar acesso aos anúncios, autorize sua conta.
+              }
+            </p>
+            <div class="d-flex flex-wrap gap-2">
+              <button type="button" class="btn btn-outline-primary btn-sm" (click)="mlTest()" [disabled]="mlBusy()">
+                <i class="bi bi-plug me-1"></i>Testar credenciais
+              </button>
+              @if (!ml.user_connected) {
+                <button type="button" class="btn btn-primary btn-sm" (click)="mlAuthorize()" [disabled]="mlBusy() || !ml.redirect_uri_configured"
+                  [title]="ml.redirect_uri_configured ? '' : 'Defina ML_REDIRECT_URI no .env'">
+                  <i class="bi bi-person-check me-1"></i>Autorizar minha conta
+                </button>
+              } @else {
+                <button type="button" class="btn btn-outline-danger btn-sm" (click)="mlDisconnect()">Desconectar</button>
+              }
+            </div>
+            @if (authUrl()) {
+              <form class="mt-3" (submit)="$event.preventDefault(); mlConnect()">
+                <label class="form-label" for="ml-code">
+                  Após autorizar, cole aqui o endereço completo para onde você foi levado (ou só o código):
+                </label>
+                <div class="input-group input-group-sm">
+                  <input id="ml-code" class="form-control" placeholder="https://…?code=TG-…" [value]="code()" (input)="code.set(value($event))" />
+                  <button type="submit" class="btn btn-primary" [disabled]="!code().trim() || mlBusy()">Conectar</button>
+                </div>
+                <div class="small text-muted-pw mt-1">
+                  A janela não abriu? <a [href]="authUrl()" target="_blank" rel="noopener noreferrer">Abrir autorização</a>
+                </div>
+              </form>
+            }
+            @if (ml.last_error && !mlMessage()) {
+              <div class="small text-warning mt-2">{{ ml.last_error }}</div>
+            }
+          }
+          @if (mlMessage(); as m) {
+            <div class="small mt-2" [class.price-down]="m.ok" [class.text-danger]="!m.ok">{{ m.text }}</div>
+          }
+        }
+      </section>
+    </div>
+  }
+</div>
+
+<p class="small text-muted-pw mt-3 mb-0">
+  <i class="bi bi-info-circle me-1"></i>
+  Regras: no máximo 1 requisição a cada 5 s por loja; se a loja bloquear, pausa de 30 min. Nenhuma proteção
+  anti-robô é contornada e nenhum preço é estimado. Preços informados manualmente aparecem identificados.
+</p>

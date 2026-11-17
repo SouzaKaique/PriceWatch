@@ -1,0 +1,363 @@
+// PRICE WATCH — tema "Tech Premium" (dark) sobre Bootstrap 5.
+
+// ---- Paleta -------------------------------------------------------------
+$pw-bg: #0b1120;          // fundo azul-marinho muito escuro
+$pw-surface: #131c2e;     // cards
+$pw-surface-2: #1a2438;   // cards elevados / hover
+$pw-border: #26324a;
+$pw-text: #e6ebf5;
+$pw-muted: #8a96ad;
+$pw-blue: #3b82f6;        // azul elétrico: interação / informação
+$pw-green: #a3e635;       // verde-limão: queda de preço / oportunidade
+$pw-orange: #fb923c;      // alerta
+$pw-red: #f87171;         // aumento de preço / erro
+
+// ---- Overrides do Bootstrap ----------------------------------------------
+$primary: $pw-blue;
+$success: $pw-green;
+$warning: $pw-orange;
+$danger: $pw-red;
+$info: #38bdf8;
+$font-family-sans-serif: "Segoe UI Variable", "Segoe UI", system-ui, -apple-system, "SF Pro Text",
+  Roboto, "Helvetica Neue", Arial, sans-serif;
+$border-radius: 0.6rem;
+$border-radius-lg: 0.9rem;
+$enable-shadows: false;
+$enable-gradients: false;
+
+$body-bg-dark: $pw-bg;
+$body-color-dark: $pw-text;
+$body-secondary-color-dark: $pw-muted;
+$border-color-dark: $pw-border;
+$card-bg: $pw-surface;
+
+@import "bootstrap/scss/bootstrap";
+
+// ---- Tokens CSS (usados pelos componentes) -------------------------------
+:root {
+  --pw-bg: #{$pw-bg};
+  --pw-surface: #{$pw-surface};
+  --pw-surface-2: #{$pw-surface-2};
+  --pw-border: #{$pw-border};
+  --pw-text: #{$pw-text};
+  --pw-muted: #{$pw-muted};
+  --pw-blue: #{$pw-blue};
+  --pw-green: #{$pw-green};
+  --pw-orange: #{$pw-orange};
+  --pw-red: #{$pw-red};
+  // Séries dos gráficos: paleta categórica validada (CVD/contraste) no fundo #131c2e.
+  // Ordem fixa por loja: KaBuM, Pichau, Mercado Livre, Amazon.
+  --pw-series-1: #3987e5;
+  --pw-series-2: #d95926;
+  --pw-series-3: #199e70;
+  --pw-series-4: #c98500;
+  --pw-shadow: 0 1px 2px rgba(0, 0, 0, 0.3), 0 8px 24px rgba(0, 0, 0, 0.25);
+}
+
+html,
+body {
+  background: var(--pw-bg);
+  color: var(--pw-text);
+  min-height: 100%;
+}
+
+body {
+  -webkit-font-smoothing: antialiased;
+  // respeita o notch do iPhone quando instalado como app
+  padding-left: env(safe-area-inset-left);
+  padding-right: env(safe-area-inset-right);
+}
+
+.card {
+  background: var(--pw-surface);
+  border: 1px solid var(--pw-border);
+  border-radius: $border-radius-lg;
+  box-shadow: var(--pw-shadow);
+}
+
+.text-muted-pw {
+  color: var(--pw-muted) !important;
+}
+
+.price-down {
+  color: var(--pw-green);
+}
+.price-up {
+  color: var(--pw-red);
+}
+
+.tabular {
+  font-variant-numeric: tabular-nums;
+}
+
+.status-dot {
+  display: inline-block;
+  width: 0.55rem;
+  height: 0.55rem;
+  border-radius: 50%;
+  background: var(--pw-muted);
+  &.ok {
+    background: var(--pw-green);
+    box-shadow: 0 0 0 3px rgba(163, 230, 53, 0.15);
+  }
+  &.error {
+    background: var(--pw-red);
+    box-shadow: 0 0 0 3px rgba(248, 113, 113, 0.15);
+  }
+}
+
+// ---- Layout --------------------------------------------------------------
+.topbar {
+  position: sticky;
+  top: 0;
+  z-index: 1020;
+  background: rgba(11, 17, 32, 0.85);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border-bottom: 1px solid var(--pw-border);
+  padding-top: env(safe-area-inset-top);
+}
+.brand {
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  font-size: 0.95rem;
+  color: var(--pw-text);
+  text-decoration: none;
+}
+.brand-mark {
+  color: var(--pw-green);
+}
+.top-link {
+  color: var(--pw-muted);
+  text-decoration: none;
+  border-radius: 0.5rem;
+  padding: 0.35rem 0.75rem;
+  font-size: 0.9rem;
+  &:hover {
+    color: var(--pw-text);
+  }
+  &.active {
+    color: var(--pw-text);
+    background: var(--pw-surface-2);
+  }
+}
+.app-main {
+  @include media-breakpoint-down(md) {
+    padding-bottom: calc(5rem + env(safe-area-inset-bottom)) !important;
+  }
+}
+.tabbar {
+  position: fixed;
+  inset: auto 0 0 0;
+  z-index: 1020;
+  display: flex;
+  background: rgba(19, 28, 46, 0.95);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border-top: 1px solid var(--pw-border);
+  padding-bottom: env(safe-area-inset-bottom);
+}
+.tab-link {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.1rem;
+  padding: 0.5rem 0 0.45rem;
+  color: var(--pw-muted);
+  text-decoration: none;
+  font-size: 0.7rem;
+  .bi {
+    font-size: 1.25rem;
+  }
+  &.active {
+    color: var(--pw-blue);
+  }
+}
+
+// ---- Componentes compartilhados -----------------------------------------
+.page-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+  margin-bottom: 1.5rem;
+  h1 {
+    font-size: 1.35rem;
+    margin-bottom: 0.25rem;
+  }
+}
+.eyebrow {
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--pw-muted);
+}
+.kpi {
+  height: 100%;
+  padding: 1rem;
+  .kpi-value {
+    font-size: 1.4rem;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+    line-height: 1.2;
+    margin-top: 0.35rem;
+  }
+  .kpi-sub {
+    font-size: 0.78rem;
+    color: var(--pw-muted);
+    margin-top: 0.15rem;
+  }
+}
+.store-chip {
+  display: inline-flex;
+  align-items: center;
+  font-size: 0.72rem;
+  padding: 0.12rem 0.5rem;
+  border-radius: 999px;
+  background: var(--pw-surface-2);
+  border: 1px solid var(--pw-border);
+  color: var(--pw-text);
+  white-space: nowrap;
+}
+.badge-soft {
+  font-size: 0.72rem;
+  font-weight: 500;
+  padding: 0.2rem 0.55rem;
+  border-radius: 999px;
+  &.green {
+    color: var(--pw-green);
+    background: rgba(163, 230, 53, 0.12);
+  }
+  &.blue {
+    color: var(--pw-blue);
+    background: rgba(59, 130, 246, 0.14);
+  }
+  &.red {
+    color: var(--pw-red);
+    background: rgba(248, 113, 113, 0.12);
+  }
+  &.orange {
+    color: var(--pw-orange);
+    background: rgba(251, 146, 60, 0.12);
+  }
+  &.muted {
+    color: var(--pw-muted);
+    background: var(--pw-surface-2);
+  }
+}
+.thumb {
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  border-radius: 0.6rem;
+  background: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  img {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    padding: 0.5rem;
+  }
+  &.empty {
+    background: var(--pw-surface-2);
+    color: var(--pw-muted);
+    font-size: 2rem;
+  }
+}
+.empty-state {
+  text-align: center;
+  padding: 3rem 1rem;
+  .bi {
+    font-size: 2.5rem;
+    color: var(--pw-muted);
+  }
+}
+.form-control,
+.form-select {
+  background-color: var(--pw-bg);
+  border-color: var(--pw-border);
+  &:focus {
+    background-color: var(--pw-bg);
+  }
+}
+.form-label {
+  font-size: 0.85rem;
+  color: var(--pw-muted);
+}
+.table {
+  --bs-table-bg: transparent;
+  --bs-table-border-color: var(--pw-border);
+  margin-bottom: 0;
+  th {
+    font-size: 0.72rem;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--pw-muted);
+    font-weight: 500;
+  }
+}
+.form-control::placeholder {
+  color: #56627a;
+  opacity: 1;
+}
+.detail-thumb {
+  @include media-breakpoint-down(sm) {
+    max-width: 11rem;
+    margin: 0 auto;
+  }
+}
+.lookup-card {
+  border-color: rgba(59, 130, 246, 0.45);
+}
+.lookup-thumb {
+  width: 4.5rem;
+  flex: 0 0 4.5rem;
+  aspect-ratio: 1;
+  img {
+    padding: 0.25rem;
+  }
+}
+.min-w-0 {
+  min-width: 0;
+}
+.spin {
+  display: inline-block;
+  animation: pw-spin 0.8s linear infinite;
+}
+@keyframes pw-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+.table tr:has(+ .error-row) td {
+  border-bottom-width: 0;
+}
+
+.pw-banner {
+  font-size: 0.85rem;
+  padding: 0.5rem 1rem;
+  text-align: center;
+  border-bottom: 1px solid var(--pw-border);
+  &.warn {
+    background: rgba(251, 146, 60, 0.12);
+    color: var(--pw-orange);
+  }
+  &.info {
+    background: rgba(59, 130, 246, 0.12);
+    color: var(--pw-text);
+  }
+}
+.pw-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 2000;
+  background: rgba(5, 8, 16, 0.85);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+}

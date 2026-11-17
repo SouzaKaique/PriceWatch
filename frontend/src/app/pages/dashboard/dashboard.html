@@ -1,0 +1,245 @@
+<div class="page-header">
+  <div>
+    <h1>Dashboard</h1>
+    <p class="text-muted-pw small mb-0">Seus produtos monitorados e as melhores ofertas encontradas.</p>
+  </div>
+  <div class="d-flex gap-2">
+    <button type="button" class="btn btn-outline-secondary btn-sm" (click)="runNow()" [disabled]="running() || !products().length"
+      title="Consulta todas as ofertas ativas agora">
+      <i class="bi bi-arrow-repeat" [class.spin]="running()"></i>
+      <span class="d-none d-sm-inline ms-1">{{ running() ? 'Verificando…' : 'Verificar agora' }}</span>
+    </button>
+    <a class="btn btn-primary btn-sm" routerLink="/produtos/novo">
+      <i class="bi bi-plus-lg me-1"></i>Novo produto
+    </a>
+  </div>
+</div>
+
+@if (error(); as msg) {
+  <div class="alert alert-danger d-flex gap-2 align-items-start" role="alert">
+    <i class="bi bi-exclamation-octagon"></i>
+    <div class="flex-grow-1">{{ msg }}</div>
+    <button type="button" class="btn btn-sm btn-outline-light" (click)="load()">Tentar de novo</button>
+  </div>
+}
+
+<!-- Indicadores -->
+@let st = stats();
+<section class="row g-3 mb-4" aria-label="Indicadores">
+  <div class="col-6 col-lg-3">
+    <div class="card kpi">
+      <div class="eyebrow"><i class="bi bi-box-seam me-1"></i>Produtos</div>
+      <div class="kpi-value">{{ st?.products ?? '—' }}</div>
+      <div class="kpi-sub">
+        monitorados
+        @if (st && st.products_total > st.products) {
+          · {{ st.products_total - st.products }} pausado(s)
+        }
+      </div>
+    </div>
+  </div>
+  <div class="col-6 col-lg-3">
+    <div class="card kpi">
+      <div class="eyebrow"><i class="bi bi-shop me-1"></i>Lojas</div>
+      <div class="kpi-value">{{ st?.stores ?? '—' }}</div>
+      <div class="kpi-sub">acompanhadas</div>
+    </div>
+  </div>
+  <div class="col-6 col-lg-3">
+    <div class="card kpi">
+      <div class="eyebrow"><i class="bi bi-stars me-1"></i>Oportunidades</div>
+      <div class="kpi-value" [class.price-down]="(st?.opportunities ?? 0) > 0">{{ st?.opportunities ?? '—' }}</div>
+      <div class="kpi-sub">{{ st?.offers ?? 0 }} ofertas · {{ st?.priced_offers ?? 0 }} com preço</div>
+    </div>
+  </div>
+  <div class="col-6 col-lg-3">
+    <div class="card kpi">
+      <div class="eyebrow"><i class="bi bi-bullseye me-1"></i>Preço-alvo</div>
+      <div class="kpi-value" [class.price-down]="(st?.target_reached ?? 0) > 0">
+        {{ st?.target_reached ?? '—' }}
+      </div>
+      <div class="kpi-sub">produtos atingiram o alvo</div>
+    </div>
+  </div>
+  <div class="col-6 col-lg-3">
+    <div class="card kpi">
+      <div class="eyebrow"><i class="bi bi-graph-down-arrow me-1"></i>Maior redução</div>
+      @if (st?.biggest_drop; as d) {
+        <div class="kpi-value price-down">−{{ d.amount_cents | brl }}</div>
+        <div class="kpi-sub text-truncate" [title]="d.product_name">
+          {{ d.percent | number: '1.0-1' }}% · {{ d.product_name }}
+        </div>
+      } @else {
+        <div class="kpi-value">—</div>
+        <div class="kpi-sub">nenhuma queda registrada</div>
+      }
+    </div>
+  </div>
+  <div class="col-6 col-lg-3">
+    <div class="card kpi">
+      <div class="eyebrow"><i class="bi bi-piggy-bank me-1"></i>Economia potencial</div>
+      <div class="kpi-value" [class.price-down]="(st?.potential_savings_cents ?? 0) > 0">
+        {{ st && st.priced_offers >= 2 ? (st.potential_savings_cents | brl) : '—' }}
+      </div>
+      <div class="kpi-sub">vs. loja mais cara de cada produto</div>
+    </div>
+  </div>
+  <div class="col-6 col-lg-3">
+    <div class="card kpi">
+      <div class="eyebrow"><i class="bi bi-clock-history me-1"></i>Última atualização</div>
+      <div class="kpi-value fs-6 mt-2">
+        {{ st?.last_check_at ? (st!.last_check_at | date: 'dd/MM HH:mm') : 'Nenhuma ainda' }}
+      </div>
+    </div>
+  </div>
+  <div class="col-6 col-lg-3">
+    <div class="card kpi">
+      <div class="eyebrow"><i class="bi bi-alarm me-1"></i>Próxima verificação</div>
+      @if (running()) {
+        <div class="kpi-value fs-6 mt-2"><span class="spinner-border spinner-border-sm me-1"></span>Em andamento</div>
+        <div class="kpi-sub">consultando as lojas</div>
+      } @else if (st?.next_check_at) {
+        <div class="kpi-value fs-6 mt-2">{{ st!.next_check_at | date: 'dd/MM HH:mm' }}</div>
+        <div class="kpi-sub">enquanto o backend estiver rodando</div>
+      } @else if (st && !st.scheduler_active) {
+        <div class="kpi-value fs-6 mt-2">Pausado</div>
+        <div class="kpi-sub"><a routerLink="/status">ativar em Sistema</a></div>
+      } @else {
+        <div class="kpi-value fs-6 mt-2">—</div>
+      }
+    </div>
+  </div>
+</section>
+
+@if (events().length) {
+  <section class="card p-3 mb-4" aria-label="Atividade recente">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+      <h2 class="eyebrow mb-0"><i class="bi bi-activity me-1"></i>Atividade recente</h2>
+    </div>
+    <app-event-list [events]="events()" [linkProducts]="true" />
+  </section>
+}
+
+<!-- Filtros -->
+@if (products().length) {
+  <section class="card p-3 mb-3" aria-label="Filtros">
+    <div class="row g-2 align-items-end">
+      <div class="col-12 col-md-6 col-xl-3">
+        <label class="form-label" for="f-search">Buscar</label>
+        <div class="input-group input-group-sm">
+          <span class="input-group-text"><i class="bi bi-search"></i></span>
+          <input
+            id="f-search"
+            class="form-control"
+            placeholder="Nome, marca, modelo…"
+            [value]="search()"
+            (input)="search.set(value($event))"
+          />
+        </div>
+      </div>
+      <div class="col-6 col-md-3 col-xl-2">
+        <label class="form-label" for="f-store">Loja</label>
+        <select id="f-store" class="form-select form-select-sm" [value]="store()" (change)="store.set(value($event))">
+          <option value="">Todas</option>
+          @for (s of storeSvc.stores(); track s.key) {
+            <option [value]="s.key">{{ s.name }}</option>
+          }
+        </select>
+      </div>
+      <div class="col-6 col-md-3 col-xl-2">
+        <label class="form-label" for="f-cat">Categoria</label>
+        <select id="f-cat" class="form-select form-select-sm" [value]="category()" (change)="category.set(value($event))">
+          <option value="">Todas</option>
+          @for (c of categories(); track c) {
+            <option [value]="c">{{ c }}</option>
+          }
+        </select>
+      </div>
+      <div class="col-6 col-md-4 col-xl-2">
+        <label class="form-label" for="f-status">Status</label>
+        <select id="f-status" class="form-select form-select-sm" [value]="status()" (change)="status.set($any(value($event)))">
+          <option value="all">Todos</option>
+          <option value="active">Monitorando</option>
+          <option value="paused">Pausados</option>
+          <option value="target">Preço-alvo atingido</option>
+          <option value="no-price">Sem preço ainda</option>
+        </select>
+      </div>
+      <div class="col-6 col-md-4 col-xl-3">
+        <label class="form-label" for="f-opp">Oportunidade</label>
+        <select id="f-opp" class="form-select form-select-sm" [value]="opportunity()" (change)="opportunity.set(value($event))">
+          <option value="">Todas</option>
+          <option value="deals">Ótimas e boas</option>
+          <option value="great">Ótima oportunidade</option>
+          <option value="average">Dentro da média</option>
+          <option value="above">Acima do habitual</option>
+          <option value="weak_discount">Desconto pouco vantajoso</option>
+          <option value="misleading">Possível promoção enganosa</option>
+          <option value="insufficient">Dados insuficientes</option>
+        </select>
+      </div>
+      <div class="col-6 col-md-4 col-xl-2">
+        <label class="form-label" for="f-max">Preço até</label>
+        <input
+          id="f-max"
+          class="form-control form-control-sm"
+          inputmode="decimal"
+          placeholder="R$"
+          [value]="maxPrice()"
+          (input)="maxPrice.set(value($event))"
+        />
+      </div>
+      <div class="col-6 col-md-6 col-xl-2">
+        <label class="form-label" for="f-sort">Ordenar</label>
+        <select id="f-sort" class="form-select form-select-sm" [value]="sort()" (change)="sort.set($any(value($event)))">
+          <option value="recent">Mais recentes</option>
+          <option value="price">Menor preço</option>
+          <option value="variation">Maior queda</option>
+          <option value="name">Nome</option>
+        </select>
+      </div>
+      @if (hasFilters()) {
+        <div class="col-4 col-md-auto">
+          <button type="button" class="btn btn-link btn-sm text-decoration-none px-0" (click)="clearFilters()">
+            Limpar
+          </button>
+        </div>
+      }
+    </div>
+  </section>
+}
+
+<!-- Produtos -->
+@if (loading() && !products().length) {
+  <div class="text-center py-5 text-muted-pw">
+    <span class="spinner-border spinner-border-sm me-2"></span>Carregando…
+  </div>
+} @else if (!products().length && !error()) {
+  <div class="card empty-state">
+    <i class="bi bi-binoculars"></i>
+    <h2 class="h5 mt-3">Nenhum produto monitorado</h2>
+    <p class="text-muted-pw small mb-3">
+      Cadastre um produto e os links dele na KaBuM!, Pichau, Mercado Livre ou Amazon.
+    </p>
+    <div><a class="btn btn-primary" routerLink="/produtos/novo">Adicionar primeiro produto</a></div>
+  </div>
+} @else if (products().length) {
+  <div class="d-flex justify-content-between align-items-center mb-2">
+    <span class="small text-muted-pw">{{ filtered().length }} de {{ products().length }} produto(s)</span>
+  </div>
+  <div class="row g-3">
+    @for (p of filtered(); track p.id) {
+      <div class="col-12 col-sm-6 col-lg-4 col-xl-3">
+        <app-product-card [product]="p" (toggleActive)="toggleActive(p, $event)" />
+      </div>
+    } @empty {
+      <div class="col-12">
+        <div class="card empty-state">
+          <i class="bi bi-funnel"></i>
+          <p class="text-muted-pw small mt-2 mb-2">Nenhum produto corresponde aos filtros.</p>
+          <div><button type="button" class="btn btn-outline-secondary btn-sm" (click)="clearFilters()">Limpar filtros</button></div>
+        </div>
+      </div>
+    }
+  </div>
+}

@@ -1,0 +1,74 @@
+<header class="topbar">
+  <div class="container-lg d-flex align-items-center justify-content-between py-2">
+    <a class="brand d-flex align-items-center gap-2" routerLink="/">
+      <i class="bi bi-activity brand-mark fs-5"></i>
+      PRICE WATCH
+    </a>
+    @if (pwa.canInstall() && !pwa.standalone()) {
+      <button type="button" class="btn btn-outline-primary btn-sm ms-auto me-2" (click)="pwa.install()">
+        <i class="bi bi-download me-1"></i>Instalar app
+      </button>
+    }
+    <nav class="d-none d-md-flex gap-1" aria-label="Navegação principal">
+      @for (item of nav; track item.path) {
+        <a
+          class="top-link"
+          [routerLink]="item.path"
+          routerLinkActive="active"
+          [routerLinkActiveOptions]="{ exact: item.exact }"
+        >
+          <i class="bi {{ item.icon }} me-1"></i>{{ item.label }}
+        </a>
+      }
+    </nav>
+  </div>
+</header>
+
+@if (!pwa.online()) {
+  <div class="pw-banner warn" role="status">
+    <i class="bi bi-wifi-off me-1"></i>Sem conexão com o PRICE WATCH — mostrando os últimos dados salvos neste aparelho.
+  </div>
+}
+@if (pwa.updateReady()) {
+  <div class="pw-banner info" role="status">
+    <i class="bi bi-arrow-repeat me-1"></i>Nova versão disponível.
+    <button type="button" class="btn btn-sm btn-primary ms-2" (click)="pwa.applyUpdate()">Atualizar</button>
+  </div>
+}
+@if (pwa.showIosTip()) {
+  <div class="pw-banner info" role="note">
+    <i class="bi bi-phone me-1"></i>Para instalar no iPhone: toque em <i class="bi bi-box-arrow-up mx-1"></i><strong>Compartilhar</strong>
+    → <strong>Adicionar à Tela de Início</strong>.
+    <button type="button" class="btn-close btn-close-white btn-sm ms-2 align-middle" aria-label="Fechar dica" (click)="pwa.dismissIosTip()"></button>
+  </div>
+}
+
+<main class="container-lg py-4 app-main">
+  <router-outlet />
+</main>
+
+@if (accessKey.required()) {
+  <div class="pw-overlay" role="dialog" aria-modal="true" aria-labelledby="key-title">
+    <form class="card p-4" style="max-width: 24rem; width: 100%" (submit)="$event.preventDefault(); saveKey()">
+      <h2 id="key-title" class="h5"><i class="bi bi-shield-lock me-2"></i>Chave de acesso</h2>
+      <p class="small text-muted-pw">Este PRICE WATCH está protegido. Informe a chave definida em <code>API_ACCESS_KEY</code> no computador.</p>
+      <input class="form-control mb-3" type="password" autocomplete="current-password" aria-label="Chave de acesso"
+        [value]="keyInput()" (input)="keyInput.set(value($event))" />
+      <button type="submit" class="btn btn-primary" [disabled]="!keyInput().trim()">Entrar</button>
+    </form>
+  </div>
+}
+
+<nav class="tabbar d-md-none" aria-label="Navegação">
+  @for (item of nav; track item.path) {
+    <a
+      class="tab-link"
+      [routerLink]="item.path"
+      routerLinkActive="active"
+      [routerLinkActiveOptions]="{ exact: item.exact }"
+    >
+      <i class="bi {{ item.icon }}"></i>
+      <span>{{ item.short }}</span>
+    </a>
+  }
+</nav>

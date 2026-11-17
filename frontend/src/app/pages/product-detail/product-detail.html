@@ -1,0 +1,343 @@
+<a class="small text-muted-pw text-decoration-none" routerLink="/"><i class="bi bi-chevron-left"></i> Dashboard</a>
+
+@if (error(); as msg) {
+  <div class="alert alert-danger mt-3" role="alert">{{ msg }}</div>
+}
+
+@if (loading() && !product()) {
+  <div class="text-center py-5 text-muted-pw"><span class="spinner-border spinner-border-sm me-2"></span>Carregando…</div>
+}
+
+@if (product(); as p) {
+  @let s = p.summary;
+
+  <!-- Cabeçalho -->
+  <section class="card p-3 p-md-4 mt-3">
+    <div class="row g-3 align-items-center">
+      <div class="col-12 col-sm-4 col-md-3">
+        <div class="thumb detail-thumb" [class.empty]="!p.image_url || imgFailed">
+          @if (p.image_url && !imgFailed) {
+            <img [src]="p.image_url" [alt]="p.name" (error)="imgFailed = true" />
+          } @else {
+            <i class="bi bi-box-seam"></i>
+          }
+        </div>
+      </div>
+      <div class="col">
+        <div class="d-flex flex-wrap gap-2 mb-2">
+          @if (p.active) {
+            <span class="badge-soft blue"><i class="bi bi-broadcast me-1"></i>Monitorando</span>
+          } @else {
+            <span class="badge-soft muted"><i class="bi bi-pause-fill me-1"></i>Pausado</span>
+          }
+          @if (s.target_reached) {
+            <span class="badge-soft green"><i class="bi bi-bullseye me-1"></i>Preço-alvo atingido</span>
+          }
+          @if (p.category) { <span class="badge-soft muted">{{ p.category }}</span> }
+        </div>
+        <h1 class="h4 mb-1">{{ p.name }}</h1>
+        <dl class="row small mb-0 mt-2 gx-3">
+          <dt class="col-auto text-muted-pw fw-normal">Marca</dt><dd class="col-auto mb-1">{{ p.brand || '—' }}</dd>
+          <dt class="col-auto text-muted-pw fw-normal">Modelo</dt><dd class="col-auto mb-1">{{ p.model || '—' }}</dd>
+          <dt class="col-auto text-muted-pw fw-normal">Cód. fabricante</dt><dd class="col-auto mb-1">{{ p.manufacturer_code || '—' }}</dd>
+        </dl>
+        @if (p.notes) { <p class="small text-muted-pw mt-2 mb-0">{{ p.notes }}</p> }
+        <div class="d-flex flex-wrap gap-2 mt-3">
+          <a class="btn btn-outline-primary btn-sm" [routerLink]="['/produtos', p.id, 'editar']"><i class="bi bi-pencil me-1"></i>Editar</a>
+          <button type="button" class="btn btn-outline-secondary btn-sm" (click)="toggleActive()">
+            <i class="bi me-1" [class.bi-pause]="p.active" [class.bi-play]="!p.active"></i>{{ p.active ? 'Pausar' : 'Retomar' }} monitoramento
+          </button>
+          <button type="button" class="btn btn-outline-danger btn-sm" (click)="deleteProduct()"><i class="bi bi-trash me-1"></i>Excluir</button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Indicadores -->
+  <section class="row g-3 mt-0">
+    <div class="col-6 col-lg-3">
+      <div class="card kpi">
+        <div class="eyebrow">Menor preço atual</div>
+        <div class="kpi-value" [class.price-down]="s.target_reached">{{ s.best_price_cents | brl }}</div>
+        <div class="kpi-sub">{{ s.best_store ? storeSvc.name(s.best_store) : 'aguardando consulta' }}</div>
+      </div>
+    </div>
+    <div class="col-6 col-lg-3">
+      <div class="card kpi">
+        <div class="eyebrow">Preço-alvo</div>
+        <div class="kpi-value">{{ p.target_price_cents | brl }}</div>
+        <div class="kpi-sub">
+          @if (gapToTarget(); as g) {
+            @if (g > 0) { faltam {{ g | brl }} } @else { atingido }
+          } @else if (gapToTarget() === 0) { atingido } @else { — }
+        </div>
+      </div>
+    </div>
+    <div class="col-6 col-lg-3">
+      <div class="card kpi">
+        <div class="eyebrow">Variação</div>
+        @if (s.variation_percent !== null) {
+          <div class="kpi-value" [class.price-down]="s.variation_percent < 0" [class.price-up]="s.variation_percent > 0">
+            {{ s.variation_percent | number: '1.0-1' }}%
+          </div>
+          <div class="kpi-sub">desde a consulta anterior</div>
+        } @else {
+          <div class="kpi-value">—</div><div class="kpi-sub">sem consultas anteriores</div>
+        }
+      </div>
+    </div>
+    <div class="col-6 col-lg-3">
+      <div class="card kpi">
+        <div class="eyebrow">Última verificação</div>
+        <div class="kpi-value fs-6 mt-2">{{ s.last_checked_at ? (s.last_checked_at | date: 'dd/MM/yyyy HH:mm') : 'Nenhuma ainda' }}</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Comparação entre lojas -->
+  <section class="card mt-3">
+    <div class="p-3 p-md-4 pb-2">
+      <h2 class="eyebrow mb-1">Comparação entre lojas</h2>
+      <p class="small text-muted-pw mb-0">Confirme se cada link é realmente o mesmo produto (marca, modelo e variação).</p>
+    </div>
+    <div class="table-responsive">
+      <table class="table align-middle">
+        <thead>
+          <tr><th class="ps-3 ps-md-4">Loja</th><th>Preço</th><th class="d-none d-md-table-cell">Status</th><th>Mesmo produto?</th><th class="text-end pe-3 pe-md-4">Ações</th></tr>
+        </thead>
+        <tbody>
+          @for (o of offers(); track o.id) {
+            <tr>
+              <td class="ps-3 ps-md-4">
+                <div class="fw-medium">{{ storeSvc.name(o.store) }}</div>
+                <div class="small text-muted-pw text-truncate" style="max-width: 16rem" [title]="o.url">{{ o.title || o.url }}</div>
+              </td>
+              <td class="tabular">
+                @if (o.current_price_cents !== null) {
+                  @if (o.list_price_cents) {
+                    <div class="small text-muted-pw text-decoration-line-through">{{ o.list_price_cents | brl }}</div>
+                  }
+                  <span [class.price-down]="o.id === s.best_offer_id">{{ o.current_price_cents | brl }}</span>
+                  @if (o.id === s.best_offer_id && s.priced_offer_count > 1) { <span class="badge-soft green ms-1">melhor</span> }
+                  @if (o.installment_price_cents) {
+                    <div class="small text-muted-pw">à vista · {{ o.installment_price_cents | brl }} a prazo</div>
+                  }
+                  @if (o.price_source === 'manual') {
+                    <div class="small text-muted-pw"><i class="bi bi-person me-1"></i>informado por você</div>
+                  }
+                  <div class="mt-1"><app-analysis-badge [analysis]="o.analysis" [hideInsufficient]="true" /></div>
+                } @else {
+                  <span class="text-muted-pw small">não consultado</span>
+                }
+              </td>
+              <td class="d-none d-md-table-cell small">
+                @switch (o.last_status) {
+                  @case ('ok') {
+                    @if (o.available === null) { <span class="badge-soft muted">Estoque não informado</span> }
+                    @else { <span class="badge-soft" [class.green]="o.available" [class.orange]="!o.available">{{ o.available ? 'Disponível' : 'Indisponível' }}</span> }
+                  }
+                  @case ('blocked') { <span class="badge-soft orange" [title]="o.last_error ?? ''"><i class="bi bi-shield-exclamation me-1"></i>Loja bloqueou</span> }
+                  @case ('rate_limited') { <span class="badge-soft orange" [title]="o.last_error ?? ''">Em pausa</span> }
+                  @case ('not_found') { <span class="badge-soft red" [title]="o.last_error ?? ''">Não encontrado</span> }
+                  @case ('error') { <span class="badge-soft red" [title]="o.last_error ?? ''">Erro na consulta</span> }
+                  @case ('unsupported') { <span class="badge-soft orange">Integração indisponível</span> }
+                  @default { <span class="badge-soft muted">Aguardando</span> }
+                }
+                @if (o.last_checked_at) {
+                  <div class="text-muted-pw mt-1" style="font-size: 0.72rem">{{ o.last_checked_at | date: 'dd/MM HH:mm' }}</div>
+                }
+              </td>
+              <td>
+                @if (o.match; as m) {
+                  <span class="badge-soft d-inline-block mb-1" [title]="m.reasons.join(' ')"
+                    [class.green]="m.level === 'strong'" [class.blue]="m.level === 'possible'"
+                    [class.red]="m.level === 'mismatch'" [class.muted]="m.level === 'unknown'">
+                    {{ matchLabel[m.level] }}
+                  </span>
+                }
+                <div class="form-check form-switch m-0">
+                  <input class="form-check-input" type="checkbox" role="switch" [id]="'m-' + o.id" [checked]="o.match_confirmed" (change)="toggleMatch(o)" />
+                  <label class="form-check-label small text-muted-pw" [for]="'m-' + o.id">{{ o.match_confirmed ? 'Confirmado' : 'Não confirmado' }}</label>
+                </div>
+              </td>
+              <td class="text-end pe-3 pe-md-4 text-nowrap">
+                <button type="button" class="btn btn-sm btn-outline-secondary me-1" (click)="checkOffer(o)" [disabled]="checking().has(o.id)" title="Consultar agora">
+                  <i class="bi bi-arrow-repeat" [class.spin]="checking().has(o.id)"></i>
+                </button>
+                <a class="btn btn-sm btn-outline-primary" [href]="o.url" target="_blank" rel="noopener noreferrer" title="Abrir oferta"><i class="bi bi-box-arrow-up-right"></i></a>
+                <button type="button" class="btn btn-sm btn-outline-danger ms-1" (click)="removeOffer(o)" title="Remover oferta"><i class="bi bi-trash"></i></button>
+              </td>
+            </tr>
+            @if ((o.last_error && o.last_status !== 'ok') || manualFor() === o.id) {
+              <tr class="error-row">
+                <td colspan="5" class="ps-3 ps-md-4 pt-0 small">
+                  @if (o.last_error && o.last_status !== 'ok') {
+                    <div class="text-warning">
+                      <i class="bi bi-info-circle me-1"></i>{{ o.last_error }}
+                      @if (manualFor() !== o.id) {
+                        <button type="button" class="btn btn-link btn-sm p-0 ms-1 align-baseline" (click)="openManual(o)">Registrar preço manualmente</button>
+                      }
+                    </div>
+                  }
+                  @if (manualFor() === o.id) {
+                    <form class="d-flex flex-wrap gap-2 align-items-center mt-2" (submit)="$event.preventDefault(); saveManual(o)">
+                      <div class="input-group input-group-sm" style="max-width: 11rem">
+                        <span class="input-group-text">R$</span>
+                        <input class="form-control tabular" inputmode="decimal" placeholder="0,00" aria-label="Preço visto na loja"
+                          [value]="manualPrice()" (input)="manualPrice.set(value($event))" />
+                      </div>
+                      <div class="form-check m-0">
+                        <input class="form-check-input" type="checkbox" [id]="'av-' + o.id" [checked]="manualAvailable()" (change)="manualAvailable.set(!manualAvailable())" />
+                        <label class="form-check-label" [for]="'av-' + o.id">Disponível</label>
+                      </div>
+                      <button type="submit" class="btn btn-primary btn-sm">Salvar</button>
+                      <button type="button" class="btn btn-link btn-sm text-muted-pw" (click)="manualFor.set(null)">Cancelar</button>
+                      @if (manualError(); as m) { <span class="text-danger">{{ m }}</span> }
+                      <span class="text-muted-pw w-100">Use o preço que você viu na página da loja agora. Ele fica identificado como "informado por você" no histórico.</span>
+                    </form>
+                  }
+                </td>
+              </tr>
+            }
+          } @empty {
+            <tr><td colspan="5" class="text-center text-muted-pw small py-4">Nenhuma loja vinculada ainda.</td></tr>
+          }
+        </tbody>
+      </table>
+    </div>
+    <form class="p-3 p-md-4 border-top" (submit)="$event.preventDefault(); addOffer()">
+      <label class="form-label" for="new-offer">Adicionar link de outra loja</label>
+      <div class="input-group">
+        <input id="new-offer" class="form-control" inputmode="url" placeholder="https://www.pichau.com.br/…"
+          [value]="newUrl()" (input)="newUrl.set(value($event))" [class.is-invalid]="offerError()" />
+        <button type="submit" class="btn btn-primary" [disabled]="!newUrl().trim() || busy()"><i class="bi bi-plus-lg me-1"></i>Adicionar</button>
+      </div>
+      @if (offerError(); as m) { <div class="small text-danger mt-1">{{ m }}</div> }
+    </form>
+  </section>
+
+  <!-- Inteligência de preço -->
+  <section class="card p-3 p-md-4 mt-3">
+    <h2 class="eyebrow mb-3"><i class="bi bi-cpu me-1"></i>Inteligência de preço</h2>
+    @if (analysis(); as an) {
+      <app-analysis-panel [data]="an" [bestStoreKey]="s.best_store" [offers]="p.offers" />
+    } @else {
+      <div class="small text-muted-pw"><span class="spinner-border spinner-border-sm me-2"></span>Analisando…</div>
+    }
+  </section>
+
+  <!-- Cupons -->
+  <section class="card p-3 p-md-4 mt-3">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+      <h2 class="eyebrow mb-0"><i class="bi bi-ticket-perforated me-1"></i>Cupons disponíveis</h2>
+      <a class="small" routerLink="/cupons">Todos os cupons</a>
+    </div>
+    @if (coupons().length) {
+      @if (mainCoupons().length) {
+        <div class="row g-3">
+          @for (item of mainCoupons(); track item.coupon.id) {
+            <div class="col-12 col-md-6">
+              <app-coupon-card [coupon]="item.coupon" (verify)="setCouponVerification(item.coupon.id, $event)">
+                @for (o of item.offers; track o.offer_id) {
+                  <div class="small mt-2 d-flex flex-wrap gap-2 align-items-center">
+                    <span class="badge-soft" [class.green]="o.applicability.level === 'applies'" [class.blue]="o.applicability.level === 'possible'">
+                      {{ applicabilityLabel[o.applicability.level] }}
+                    </span>
+                    @if (o.estimated_cents !== null) {
+                      <span>Estimativa: <strong class="tabular price-down">{{ o.estimated_cents | brl }}</strong>
+                        <span class="text-muted-pw"> (de {{ o.price_cents | brl }})</span></span>
+                    } @else {
+                      <span class="text-muted-pw">sem preço atual para estimar</span>
+                    }
+                  </div>
+                  <div class="small text-muted-pw">{{ o.applicability.reasons.join(' ') }}</div>
+                }
+              </app-coupon-card>
+            </div>
+          }
+        </div>
+      } @else {
+        <p class="small text-muted-pw">Nenhum cupom vinculado a este produto pela loja.</p>
+      }
+
+      @if (otherCoupons().length) {
+        <details class="mt-3">
+          <summary class="small">
+            {{ otherCoupons().length }} cupom(ns) para "produtos selecionados" — participação deste produto não confirmada
+          </summary>
+          <div class="table-responsive mt-2">
+            <table class="table table-sm small align-middle">
+              <thead><tr><th>Cupom</th><th>Desconto</th><th class="text-end">Se valer para este produto</th><th>Validade</th><th></th></tr></thead>
+              <tbody>
+                @for (item of otherCoupons(); track item.coupon.id) {
+                  <tr>
+                    <td class="font-monospace">{{ item.coupon.code }}</td>
+                    <td>{{ item.coupon.discount_percent ? item.coupon.discount_percent + '%' : (item.coupon.discount_cents | brl) }}</td>
+                    <td class="text-end tabular">{{ item.offers[0].estimated_cents | brl }}</td>
+                    <td>{{ item.coupon.valid_until | date: 'dd/MM HH:mm' }}</td>
+                    <td class="text-end">
+                      @if (item.coupon.link_url) {
+                        <a [href]="item.coupon.link_url" target="_blank" rel="noopener noreferrer" title="Ver produtos participantes">listagem</a>
+                      }
+                    </td>
+                  </tr>
+                }
+              </tbody>
+            </table>
+          </div>
+          <p class="small text-muted-pw mb-0">Confira na listagem da promoção se este produto participa antes de contar com o desconto.</p>
+        </details>
+      }
+      <p class="small text-muted-pw mt-3 mb-0">
+        Estimativas aplicam o desconto sobre o preço atual (à vista). A loja pode não acumular o cupom com outros
+        descontos; o valor final só é confirmado no carrinho.
+      </p>
+    } @else {
+      <p class="small text-muted-pw mb-0">Nenhum cupom ativo encontrado para as lojas deste produto.</p>
+    }
+  </section>
+
+  <!-- Histórico -->
+  <section class="card p-3 p-md-4 mt-3">
+    <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+      <h2 class="eyebrow mb-0">Histórico de preços</h2>
+      <div class="btn-group btn-group-sm" role="group" aria-label="Período">
+        @for (d of periods; track d.days) {
+          <button type="button" class="btn" [class.btn-primary]="days() === d.days" [class.btn-outline-secondary]="days() !== d.days"
+            (click)="setDays(d.days)">{{ d.label }}</button>
+        }
+      </div>
+    </div>
+    @if (history(); as h) {
+      @if (historyPoints() > 0) {
+        <app-price-chart [series]="h.series" [target]="h.target_price_cents" />
+        <div class="row g-2 mt-2 small">
+          <div class="col-6 col-md-3"><span class="text-muted-pw">Menor no período</span><div class="tabular fw-semibold">{{ periodStats().min | brl }}</div></div>
+          <div class="col-6 col-md-3"><span class="text-muted-pw">Maior no período</span><div class="tabular fw-semibold">{{ periodStats().max | brl }}</div></div>
+          <div class="col-6 col-md-3"><span class="text-muted-pw">Consultas</span><div class="tabular fw-semibold">{{ historyPoints() }}</div></div>
+          <div class="col-6 col-md-3"><span class="text-muted-pw">Monitorado desde</span><div class="fw-semibold">{{ h.monitoring_since | date: 'dd/MM/yyyy' }}</div></div>
+        </div>
+        <p class="small text-muted-pw mt-2 mb-0">
+          Somente preços efetivamente coletados desde o início do monitoramento — nada anterior é estimado.
+        </p>
+      } @else {
+        <p class="small text-muted-pw mb-0">
+          @if (h.monitoring_since && days() > 0) {
+            Nenhuma consulta nos últimos {{ days() }} dias.
+          } @else {
+            Ainda não há histórico: ele começa na primeira consulta (automática ou "Consultar agora").
+            Nenhum dado anterior ao início do monitoramento é estimado.
+          }
+        </p>
+      }
+    } @else {
+      <div class="small text-muted-pw"><span class="spinner-border spinner-border-sm me-2"></span>Carregando histórico…</div>
+    }
+  </section>
+
+  <!-- Alterações -->
+  <section class="card p-3 p-md-4 mt-3">
+    <h2 class="eyebrow mb-3">Alterações detectadas</h2>
+    <app-event-list [events]="events()" />
+  </section>
+}

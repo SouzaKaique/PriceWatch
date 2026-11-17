@@ -1,0 +1,148 @@
+<div class="page-header">
+  <div>
+    <h1>Cupons</h1>
+    <p class="text-muted-pw small mb-0">
+      Cupons de fontes oficiais e os que você cadastrar. Nenhum é dado como válido sem que você confirme no carrinho.
+    </p>
+  </div>
+  <div class="d-flex gap-2">
+    <button type="button" class="btn btn-outline-secondary btn-sm" (click)="refresh()" [disabled]="refreshing()">
+      <i class="bi bi-arrow-repeat me-1" [class.spin]="refreshing()"></i>Atualizar oficiais
+    </button>
+    <button type="button" class="btn btn-primary btn-sm" (click)="showForm.set(!showForm())">
+      <i class="bi bi-plus-lg me-1"></i>Adicionar cupom
+    </button>
+  </div>
+</div>
+
+@if (error(); as msg) { <div class="alert alert-danger">{{ msg }}</div> }
+
+<section class="card p-3 mb-3 small">
+  <div class="d-flex flex-wrap gap-3 align-items-center">
+    <span><i class="bi bi-patch-check me-1 text-info"></i><strong>KaBuM!</strong>: lista da
+      <a href="https://www.kabum.com.br/hotsite/cupons/" target="_blank" rel="noopener noreferrer">página oficial de cupons</a>,
+      atualizada automaticamente a cada 6 h.
+      @if (sources()?.kabum?.last_fetch_at; as t) { Última leitura: {{ t | date: 'dd/MM HH:mm' }}. }
+    </span>
+    <span class="text-muted-pw">Pichau, Mercado Livre e Amazon não têm fonte oficial pública de códigos acessível — cadastre manualmente o que você encontrar.</span>
+  </div>
+  @if (sources()?.kabum?.last_error; as e) { <div class="text-warning mt-1">Última tentativa: {{ e }}</div> }
+  @if (refreshMsg(); as m) { <div class="mt-1" [class.price-down]="m.ok" [class.text-warning]="!m.ok">{{ m.text }}</div> }
+</section>
+
+@if (showForm()) {
+  <section class="card p-3 p-md-4 mb-3">
+    <h2 class="eyebrow mb-3">Novo cupom</h2>
+    <form [formGroup]="form" (ngSubmit)="save()" novalidate class="row g-3">
+      <div class="col-6 col-md-3">
+        <label class="form-label" for="c-store">Loja *</label>
+        <select id="c-store" class="form-select form-select-sm" formControlName="store" [class.is-invalid]="fieldError('store')">
+          <option value="">Escolha…</option>
+          @for (s of storeSvc.stores(); track s.key) { <option [value]="s.key">{{ s.name }}</option> }
+        </select>
+      </div>
+      <div class="col-6 col-md-3">
+        <label class="form-label" for="c-code">Código *</label>
+        <input id="c-code" class="form-control form-control-sm font-monospace text-uppercase" formControlName="code" [class.is-invalid]="fieldError('code')" />
+        <div class="invalid-feedback">{{ fieldError('code') }}</div>
+      </div>
+      <div class="col-6 col-md-3">
+        <label class="form-label" for="c-disc">Desconto *</label>
+        <div class="input-group input-group-sm">
+          <select class="form-select flex-grow-0" style="width: 4.5rem" formControlName="discount_type" aria-label="Tipo de desconto">
+            <option value="percent">%</option>
+            <option value="cents">R$</option>
+          </select>
+          <input id="c-disc" class="form-control tabular" inputmode="decimal" formControlName="discount"
+            [class.is-invalid]="fieldError('discount') || fieldError('discount_percent') || fieldError('discount_cents')" />
+        </div>
+        @if (fieldError('discount_percent') || fieldError('discount_cents'); as m) { <div class="small text-danger">{{ m }}</div> }
+      </div>
+      <div class="col-6 col-md-3">
+        <label class="form-label" for="c-min">Compra mínima (R$)</label>
+        <input id="c-min" class="form-control form-control-sm tabular" inputmode="decimal" formControlName="min_purchase" />
+      </div>
+      <div class="col-12 col-md-6">
+        <label class="form-label" for="c-desc">Vale para</label>
+        <input id="c-desc" class="form-control form-control-sm" formControlName="description" placeholder="ex.: SSDs selecionados, primeira compra" />
+      </div>
+      <div class="col-6 col-md-3">
+        <label class="form-label" for="c-until">Válido até</label>
+        <input id="c-until" type="date" class="form-control form-control-sm" formControlName="valid_until" />
+      </div>
+      <div class="col-6 col-md-3">
+        <label class="form-label" for="c-link">Link da promoção</label>
+        <input id="c-link" class="form-control form-control-sm" inputmode="url" formControlName="link_url" [class.is-invalid]="fieldError('link_url')" />
+      </div>
+      <div class="col-12 col-md-6">
+        <label class="form-label" for="c-source">Fonte da informação *</label>
+        <input id="c-source" class="form-control form-control-sm" formControlName="source" placeholder="ex.: e-mail oficial da loja, página da promoção"
+          [class.is-invalid]="fieldError('source')" />
+        <div class="invalid-feedback">{{ fieldError('source') }}</div>
+      </div>
+      <div class="col-12 col-md-6">
+        <label class="form-label" for="c-cond">Condições</label>
+        <input id="c-cond" class="form-control form-control-sm" formControlName="conditions" />
+      </div>
+      <div class="col-12 d-flex gap-2 align-items-center">
+        <button type="submit" class="btn btn-primary btn-sm" [disabled]="saving()">Salvar cupom</button>
+        <button type="button" class="btn btn-link btn-sm text-muted-pw" (click)="showForm.set(false)">Cancelar</button>
+        @if (formErrors()['_']; as m) { <span class="small text-danger">{{ m }}</span> }
+      </div>
+    </form>
+  </section>
+}
+
+<section class="card p-3 mb-3">
+  <div class="row g-2 align-items-end">
+    <div class="col-12 col-md-4">
+      <label class="form-label" for="f-q">Buscar</label>
+      <input id="f-q" class="form-control form-control-sm" placeholder="Código ou condição" [value]="search()" (input)="search.set(value($event))" />
+    </div>
+    <div class="col-4 col-md-3">
+      <label class="form-label" for="f-store">Loja</label>
+      <select id="f-store" class="form-select form-select-sm" [value]="store()" (change)="store.set(value($event)); load()">
+        <option value="">Todas</option>
+        @for (s of storeSvc.stores(); track s.key) { <option [value]="s.key">{{ s.name }}</option> }
+      </select>
+    </div>
+    <div class="col-4 col-md-2">
+      <label class="form-label" for="f-val">Vigência</label>
+      <select id="f-val" class="form-select form-select-sm" [value]="validity()" (change)="validity.set(value($event)); load()">
+        <option value="active">Ativos</option>
+        <option value="upcoming">Em breve</option>
+        <option value="expired">Expirados</option>
+        <option value="all">Todos</option>
+      </select>
+    </div>
+    <div class="col-4 col-md-3">
+      <label class="form-label" for="f-ver">Verificação</label>
+      <select id="f-ver" class="form-select form-select-sm" [value]="verification()" (change)="verification.set(value($event))">
+        <option value="">Todas</option>
+        <option value="unconfirmed">Não confirmados</option>
+        <option value="user_confirmed">Funcionaram</option>
+        <option value="user_failed">Não funcionaram</option>
+      </select>
+    </div>
+  </div>
+</section>
+
+@if (loading()) {
+  <div class="text-center py-5 text-muted-pw"><span class="spinner-border spinner-border-sm me-2"></span>Carregando…</div>
+} @else {
+  <div class="small text-muted-pw mb-2">{{ filtered().length }} cupom(ns)</div>
+  <div class="row g-3">
+    @for (c of filtered(); track c.id) {
+      <div class="col-12 col-md-6 col-xl-4">
+        <app-coupon-card [coupon]="c" (verify)="setVerification(c, $event)" (remove)="remove(c)" />
+      </div>
+    } @empty {
+      <div class="col-12">
+        <div class="card empty-state">
+          <i class="bi bi-ticket-perforated"></i>
+          <p class="text-muted-pw small mt-2 mb-0">Nenhum cupom com esses filtros. Use "Atualizar oficiais" ou "Adicionar cupom".</p>
+        </div>
+      </div>
+    }
+  </div>
+}

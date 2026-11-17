@@ -1,0 +1,224 @@
+<div class="page-header">
+  <div>
+    <a class="small text-muted-pw text-decoration-none" [routerLink]="isEdit() ? ['/produtos', id()] : ['/']">
+      <i class="bi bi-chevron-left"></i> Voltar
+    </a>
+    <h1 class="mt-2">{{ isEdit() ? 'Editar produto' : 'Novo produto' }}</h1>
+    <p class="text-muted-pw small mb-0">
+      @if (isEdit()) {
+        Ajuste as informações do produto. Os links das lojas são gerenciados na página do produto.
+      } @else {
+        Informe o produto e os links das ofertas que deseja acompanhar.
+      }
+    </p>
+  </div>
+</div>
+
+@if (loading()) {
+  <div class="text-center py-5 text-muted-pw"><span class="spinner-border spinner-border-sm me-2"></span>Carregando…</div>
+} @else {
+  @if (!isEdit()) {
+    <section class="card p-3 p-md-4 mb-3 lookup-card">
+      <h2 class="eyebrow mb-2"><i class="bi bi-magic me-1"></i>Identificar pelo link</h2>
+      <form class="input-group" (submit)="$event.preventDefault(); identify()">
+        <span class="input-group-text"><i class="bi bi-link-45deg"></i></span>
+        <input class="form-control" inputmode="url" placeholder="Cole o link do produto na KaBuM!, Pichau, Mercado Livre ou Amazon"
+          aria-label="Link do produto" [value]="quickUrl()" (input)="quickUrl.set(value($event))" />
+        <button type="submit" class="btn btn-primary" [disabled]="!quickUrl().trim() || lookupState(quickUrl())?.loading">
+          @if (lookupState(quickUrl())?.loading) {
+            <span class="spinner-border spinner-border-sm"></span>
+          } @else {
+            Identificar
+          }
+        </button>
+      </form>
+      @if (lookupState(quickUrl()); as st) {
+        <div class="mt-3">
+          <ng-container *ngTemplateOutlet="lookupView; context: { $implicit: st, detailed: true }" />
+        </div>
+        @if (filled().length) {
+          <div class="small text-muted-pw mt-2">
+            <i class="bi bi-check2-circle price-down me-1"></i>Preenchido automaticamente: {{ filledLabels() }}.
+            Revise e ajuste se necessário.
+          </div>
+        }
+      } @else {
+        <p class="small text-muted-pw mt-2 mb-0">
+          O PRICE WATCH lê os dados que a própria loja publica na página (nome, marca, imagem, preço e estoque).
+          Lojas com proteção anti-robô são informadas — nesses casos, preencha manualmente.
+        </p>
+      }
+    </section>
+  }
+
+  <ng-template #lookupView let-st let-detailed="detailed">
+    @if (st.loading) {
+      <div class="small text-muted-pw"><span class="spinner-border spinner-border-sm me-2"></span>Consultando a loja…</div>
+    } @else if (st.error) {
+      <div class="small text-danger"><i class="bi bi-x-circle me-1"></i>{{ st.error }}</div>
+    } @else if (st.result.status === 'ok' && st.result.data) {
+      @let d = st.result.data;
+      <div class="d-flex gap-3 align-items-center">
+        @if (detailed && d.image_url) {
+          <div class="thumb lookup-thumb"><img [src]="d.image_url" [alt]="d.name ?? ''" /></div>
+        }
+        <div class="small min-w-0">
+          @if (detailed) { <div class="fw-medium text-body mb-1">{{ d.name }}</div> }
+          <span class="store-chip me-1">{{ st.result.store_name }}</span>
+          @if (d.price_cents !== null) {
+            @if (d.list_price_cents) {
+              <span class="text-muted-pw text-decoration-line-through me-1">{{ d.list_price_cents | brl }}</span>
+            }
+            <span class="fw-semibold tabular">{{ d.price_cents | brl }}</span>
+            @if (d.installment_price_cents) {
+              <span class="text-muted-pw"> à vista · {{ d.installment_price_cents | brl }} a prazo</span>
+            }
+          } @else {
+            <span class="text-muted-pw">preço não informado pela loja</span>
+          }
+          @if (d.available === true) { <span class="badge-soft green ms-1">em estoque</span> }
+          @if (d.available === false) { <span class="badge-soft orange ms-1">indisponível</span> }
+          @if (detailed && d.variations.length) {
+            <div class="text-muted-pw mt-1">Variações: {{ d.variations.join(' · ') }}</div>
+          }
+          @if (detailed) { <div class="text-muted-pw mt-1">Fonte: {{ d.source }}</div> }
+        </div>
+      </div>
+    } @else {
+      <div class="small text-warning d-flex gap-1">
+        <i class="bi bi-shield-exclamation"></i>
+        <span>{{ st.result.message }} @if (detailed) { O link será salvo e você pode preencher os dados manualmente. }</span>
+      </div>
+    }
+  </ng-template>
+
+  <form [formGroup]="form" (ngSubmit)="save()" novalidate class="row g-3">
+    <div class="col-12 col-lg-8">
+      <section class="card p-3 p-md-4">
+        <h2 class="eyebrow mb-3">Informações do produto</h2>
+        <div class="row g-3">
+          <div class="col-12">
+            <label class="form-label" for="name">Nome *</label>
+            <input id="name" class="form-control" formControlName="name" placeholder="Ex.: Monitor LG UltraGear 27 polegadas"
+              [class.is-invalid]="err('name')" />
+            <div class="invalid-feedback">{{ err('name') }}</div>
+          </div>
+          <div class="col-6">
+            <label class="form-label" for="brand">Marca</label>
+            <input id="brand" class="form-control" formControlName="brand" placeholder="LG" [class.is-invalid]="err('brand')" />
+            <div class="invalid-feedback">{{ err('brand') }}</div>
+          </div>
+          <div class="col-6">
+            <label class="form-label" for="model">Modelo</label>
+            <input id="model" class="form-control" formControlName="model" placeholder="27GS60F-B" [class.is-invalid]="err('model')" />
+            <div class="invalid-feedback">{{ err('model') }}</div>
+          </div>
+          <div class="col-6">
+            <label class="form-label" for="code">Código do fabricante</label>
+            <input id="code" class="form-control" formControlName="manufacturer_code" [class.is-invalid]="err('manufacturer_code')" />
+            <div class="invalid-feedback">{{ err('manufacturer_code') }}</div>
+          </div>
+          <div class="col-6">
+            <label class="form-label" for="category">Categoria</label>
+            <input id="category" class="form-control" formControlName="category" placeholder="Monitores" list="cat-suggestions"
+              [class.is-invalid]="err('category')" />
+            <datalist id="cat-suggestions">
+              <option value="Monitores"></option><option value="Placas de vídeo"></option>
+              <option value="Processadores"></option><option value="Periféricos"></option>
+              <option value="Armazenamento"></option><option value="Notebooks"></option>
+            </datalist>
+            <div class="invalid-feedback">{{ err('category') }}</div>
+          </div>
+          <div class="col-12">
+            <label class="form-label" for="image">URL da imagem</label>
+            <input id="image" class="form-control" formControlName="image_url" placeholder="https://…" inputmode="url"
+              [class.is-invalid]="err('image_url')" (input)="imgFailed = false" />
+            <div class="invalid-feedback">{{ err('image_url') }}</div>
+          </div>
+          <div class="col-12">
+            <label class="form-label" for="notes">Observações</label>
+            <textarea id="notes" class="form-control" rows="2" formControlName="notes"></textarea>
+          </div>
+        </div>
+      </section>
+
+      @if (!isEdit()) {
+        <section class="card p-3 p-md-4 mt-3">
+          <div class="d-flex justify-content-between align-items-center mb-1">
+            <h2 class="eyebrow mb-0">Links das ofertas</h2>
+            <button type="button" class="btn btn-outline-primary btn-sm" (click)="addOfferRow()">
+              <i class="bi bi-plus-lg me-1"></i>Outra loja
+            </button>
+          </div>
+          <p class="small text-muted-pw mb-3">
+            Cole o link do produto em cada loja; ele é consultado ao sair do campo. Os preços vêm somente de
+            consultas reais — nada é estimado.
+          </p>
+          <div formArrayName="offers" class="d-grid gap-2">
+            @for (ctrl of offers.controls; track ctrl; let i = $index) {
+              @let url = ctrl.value;
+              @let detected = url ? detectedStore(url) : null;
+              <div>
+                <div class="input-group">
+                  <span class="input-group-text"><i class="bi bi-link-45deg"></i></span>
+                  <input class="form-control" [formControlName]="i" inputmode="url" placeholder="https://www.kabum.com.br/produto/…"
+                    (blur)="lookupRow(i)"
+                    [class.is-invalid]="err('offers.' + i + '.url') || err('offers.' + i + '.store') || (url && !detected)" />
+                  <button type="button" class="btn btn-outline-secondary" (click)="removeOfferRow(i)" aria-label="Remover link">
+                    <i class="bi bi-x-lg"></i>
+                  </button>
+                </div>
+                @if (err('offers.' + i + '.url') || err('offers.' + i + '.store'); as m) {
+                  <div class="small text-danger mt-1">{{ m }}</div>
+                } @else if (url && detected && lookupState(url); as st) {
+                  <div class="mt-1"><ng-container *ngTemplateOutlet="lookupView; context: { $implicit: st, detailed: false }" /></div>
+                } @else if (url && detected) {
+                  <div class="small price-down mt-1"><i class="bi bi-check2 me-1"></i>{{ detected }}</div>
+                } @else if (url) {
+                  <div class="small text-warning mt-1">Loja não reconhecida. Suportadas: KaBuM!, Pichau, Mercado Livre, Amazon.</div>
+                }
+              </div>
+            }
+          </div>
+        </section>
+      }
+    </div>
+
+    <div class="col-12 col-lg-4">
+      <section class="card p-3 p-md-4">
+        <h2 class="eyebrow mb-3">Preço desejado</h2>
+        <label class="form-label" for="target">Preço-alvo</label>
+        <div class="input-group">
+          <span class="input-group-text">R$</span>
+          <input id="target" class="form-control tabular" formControlName="target_price" inputmode="decimal" placeholder="750,00"
+            [class.is-invalid]="err('target_price_cents')" />
+          <div class="invalid-feedback">{{ err('target_price_cents') }}</div>
+        </div>
+        <p class="small text-muted-pw mt-2 mb-0">Você será avisado quando alguma loja oferecer por esse valor ou menos.</p>
+      </section>
+
+      <section class="card p-3 mt-3">
+        <div class="thumb" [class.empty]="!form.controls.image_url.value || imgFailed">
+          @if (form.controls.image_url.value && !imgFailed) {
+            <img [src]="form.controls.image_url.value" alt="Pré-visualização" (error)="imgFailed = true" />
+          } @else {
+            <i class="bi bi-image"></i>
+          }
+        </div>
+        <div class="small text-muted-pw mt-2 text-center">Pré-visualização da imagem</div>
+      </section>
+
+      @if (error(); as msg) {
+        <div class="alert alert-danger small mt-3 mb-0" role="alert">{{ msg }}</div>
+      }
+
+      <div class="d-grid gap-2 mt-3">
+        <button type="submit" class="btn btn-primary" [disabled]="saving()">
+          @if (saving()) { <span class="spinner-border spinner-border-sm me-1"></span> }
+          {{ isEdit() ? 'Salvar alterações' : 'Cadastrar produto' }}
+        </button>
+        <a class="btn btn-outline-secondary" [routerLink]="isEdit() ? ['/produtos', id()] : ['/']">Cancelar</a>
+      </div>
+    </div>
+  </form>
+}
