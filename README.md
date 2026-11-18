@@ -11,7 +11,7 @@
 ![Flask](https://img.shields.io/badge/Flask-3-000000?style=flat-square&logo=flask&logoColor=white)
 ![SQLite](https://img.shields.io/badge/SQLite-local-003b57?style=flat-square&logo=sqlite&logoColor=white)
 ![PWA](https://img.shields.io/badge/PWA-instalável-5a0fc8?style=flat-square&logo=pwa&logoColor=white)
-![Testes](https://img.shields.io/badge/testes-127_passando-a3e635?style=flat-square)
+![Testes](https://img.shields.io/badge/testes-136_passando-a3e635?style=flat-square)
 ![Custo](https://img.shields.io/badge/custo-R$_0-a3e635?style=flat-square)
 
 [Destaques](#-destaques) · [Capturas](#-capturas) · [Como funciona](#-como-funciona) · [Início rápido](#-início-rápido) · [Celular](#-no-celular) · [Guia completo](docs/GUIA.md)
@@ -30,13 +30,14 @@
 
 | | |
 |---|---|
+| 🏆 **Preço bom em destaque** | Quando um produto atinge o seu preço-alvo ou fica bem abaixo do preço habitual, ele sobe para o topo da tela inicial com a foto, o motivo e o botão para a loja. |
 | 🔗 **Cadastro pelo link** | Cole o link do produto e o app preenche nome, marca, modelo, imagem, categoria, preço à vista, a prazo e o preço "de". |
 | 📄 **Importar lista em PDF** | Envie o PDF da sua lista de desejos (ou a página de favoritos da loja "salva como PDF"): o app encontra os produtos, links e preços, você revisa e importa tudo de uma vez. |
 | 🏪 **Várias lojas, um produto** | KaBuM!, Pichau, Mercado Livre e Amazon lado a lado, com sugestão de correspondência (você confirma). |
 | ⏱️ **Monitoramento automático** | Verifica a cada 2 h (ajustável), retoma sozinho depois que o PC liga e nunca perde o histórico. |
 | 🕵️ **Promoções enganosas** | Compara o preço atual com o **preço habitual** coletado e aponta "subiu para depois cair" e preço "de" inflado — sempre explicando o porquê. |
 | 🎟️ **Cupons** | Lê a página oficial de cupons da KaBuM!, mostra se vale para o seu produto e estima o preço final. Nada é dado como válido sem você confirmar. |
-| 🔔 **Alertas no celular** | Telegram, ntfy ou Web Push: preço-alvo atingido, queda relevante, menor preço registrado, cupom, volta ao estoque… com horário de silêncio e sem repetição. |
+| 🔔 **Alertas no celular (opcional)** | Telegram, ntfy ou Web Push: preço-alvo atingido, queda relevante, menor preço registrado, cupom, volta ao estoque… com horário de silêncio e sem repetição. |
 | 📱 **PWA de verdade** | Instalável no iPhone e no Android, funciona offline com os últimos dados e avisa quando há versão nova. |
 | 💸 **Custo zero** | Sem hospedagem, sem assinatura, sem cartão de crédito. Seus dados ficam no seu computador. |
 
@@ -175,10 +176,10 @@ cd backend
 1. Reinicie o backend (se o Windows perguntar, permita em **redes privadas**).
 2. No celular, no mesmo Wi-Fi, abra `http://IP-DO-PC:5001` e instale o certificado (a página explica iPhone e Android).
 3. Abra `https://IP-DO-PC:5443` → **Adicionar à Tela de Início** (iPhone) ou **Instalar app** (Android).
-4. No app instalado: **Alertas → Ativar neste aparelho** → **Enviar teste**.
+4. No app instalado: **Sistema → Regras de alerta e canais → Ativar neste aparelho** → **Enviar teste**.
 
 O PC continua em `http://localhost:5000`. A rede exige uma **chave de acesso** (criada pelo script) e o IP/endereço
-aparecem em **Sistema → Acesso pelo celular**.
+aparecem em **Sistema → Celular e notificações**.
 
 ### Opção B — Tailscale (também abre o app fora de casa)
 
@@ -209,7 +210,7 @@ Toque para conferir a oferta
 - **Resiliente:** queda de energia no meio de uma verificação não perde dados; ao religar, a retomada é automática.
 - **Backups diários** do banco (7 últimos), verificação de integridade a cada início e **diagnóstico** na tela Sistema
   ou com `python backend\diagnostico.py`.
-- **Testado:** 117 testes no backend e 10 no frontend — lojas fora do ar, bloqueios, captcha, timeouts, reinício,
+- **Testado:** 122 testes no backend e 14 no frontend — lojas fora do ar, bloqueios, captcha, timeouts, reinício,
   backups, alertas e Web Push — sem acessar a internet.
 
 ```powershell

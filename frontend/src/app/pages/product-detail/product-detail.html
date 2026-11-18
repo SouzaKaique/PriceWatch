@@ -1,4 +1,4 @@
-<a class="small text-muted-pw text-decoration-none" routerLink="/"><i class="bi bi-chevron-left"></i> Dashboard</a>
+<a class="back-link" routerLink="/"><i class="bi bi-chevron-left"></i> Seus preços</a>
 
 @if (error(); as msg) {
   <div class="alert alert-danger mt-3" role="alert">{{ msg }}</div>
@@ -11,85 +11,116 @@
 @if (product(); as p) {
   @let s = p.summary;
 
-  <!-- Cabeçalho -->
-  <section class="card p-3 p-md-4 mt-3">
-    <div class="row g-3 align-items-center">
-      <div class="col-12 col-sm-4 col-md-3">
-        <div class="thumb detail-thumb" [class.empty]="!p.image_url || imgFailed">
-          @if (p.image_url && !imgFailed) {
-            <img [src]="p.image_url" [alt]="p.name" (error)="imgFailed = true" />
+  <!-- Destaque: preço bom agora -->
+  @if (s.highlight; as h) {
+    <div class="deal-banner mt-3" role="status">
+      <span class="deal-banner-icon"><i class="bi" [class.bi-bullseye]="h.reason === 'target'" [class.bi-stars]="h.reason !== 'target'"></i></span>
+      <div class="min-w-0">
+        <strong>{{ h.label }}</strong>
+        <span class="d-block small">
+          @if (s.target_reached && p.target_price_cents !== null) {
+            O menor preço ({{ s.best_price_cents | brl }}) está no seu alvo de {{ p.target_price_cents | brl }} ou abaixo dele.
+          } @else if (s.analysis?.real_discount_pct; as pct) {
+            {{ pct | number: '1.0-0' }}% abaixo do preço habitual registrado ({{ s.analysis!.baseline_cents | brl }}).
           } @else {
-            <i class="bi bi-box-seam"></i>
+            Preço abaixo do habitual pelo histórico coletado.
           }
-        </div>
+        </span>
       </div>
-      <div class="col">
+      @if (s.best_url) {
+        <a class="btn btn-sm btn-dark ms-auto flex-shrink-0" [href]="s.best_url" target="_blank" rel="noopener noreferrer">
+          Ver na loja <i class="bi bi-box-arrow-up-right ms-1"></i>
+        </a>
+      }
+    </div>
+  }
+
+  <!-- Cabeçalho -->
+  <section class="card hero mt-3" [class.hot]="!!s.highlight">
+    <div class="row g-4">
+      <div class="col-12 col-md-5 col-lg-4 hero-media">
+        <app-product-image [src]="p.display_image_url" [alt]="p.name" [category]="p.category" ratio="1 / 1">
+          @if (!p.active) { <span class="hero-chip"><i class="bi bi-pause-fill me-1"></i>Pausado</span> }
+        </app-product-image>
+      </div>
+      <div class="col d-flex flex-column min-w-0">
         <div class="d-flex flex-wrap gap-2 mb-2">
           @if (p.active) {
             <span class="badge-soft blue"><i class="bi bi-broadcast me-1"></i>Monitorando</span>
           } @else {
             <span class="badge-soft muted"><i class="bi bi-pause-fill me-1"></i>Pausado</span>
           }
-          @if (s.target_reached) {
-            <span class="badge-soft green"><i class="bi bi-bullseye me-1"></i>Preço-alvo atingido</span>
+          @if (s.analysis && s.analysis.classification !== 'insufficient' && !s.highlight) {
+            <app-analysis-badge [analysis]="s.analysis" />
           }
           @if (p.category) { <span class="badge-soft muted">{{ p.category }}</span> }
         </div>
-        <h1 class="h4 mb-1">{{ p.name }}</h1>
-        <dl class="row small mb-0 mt-2 gx-3">
-          <dt class="col-auto text-muted-pw fw-normal">Marca</dt><dd class="col-auto mb-1">{{ p.brand || '—' }}</dd>
-          <dt class="col-auto text-muted-pw fw-normal">Modelo</dt><dd class="col-auto mb-1">{{ p.model || '—' }}</dd>
-          <dt class="col-auto text-muted-pw fw-normal">Cód. fabricante</dt><dd class="col-auto mb-1">{{ p.manufacturer_code || '—' }}</dd>
-        </dl>
+        <h1 class="hero-title">{{ p.name }}</h1>
+        <div class="hero-meta">
+          @if (p.brand) { <span>{{ p.brand }}</span> }
+          @if (p.model) { <span>Modelo {{ p.model }}</span> }
+          @if (p.manufacturer_code) { <span>Cód. {{ p.manufacturer_code }}</span> }
+        </div>
         @if (p.notes) { <p class="small text-muted-pw mt-2 mb-0">{{ p.notes }}</p> }
-        <div class="d-flex flex-wrap gap-2 mt-3">
-          <a class="btn btn-outline-primary btn-sm" [routerLink]="['/produtos', p.id, 'editar']"><i class="bi bi-pencil me-1"></i>Editar</a>
-          <button type="button" class="btn btn-outline-secondary btn-sm" (click)="toggleActive()">
-            <i class="bi me-1" [class.bi-pause]="p.active" [class.bi-play]="!p.active"></i>{{ p.active ? 'Pausar' : 'Retomar' }} monitoramento
-          </button>
-          <button type="button" class="btn btn-outline-danger btn-sm" (click)="deleteProduct()"><i class="bi bi-trash me-1"></i>Excluir</button>
-        </div>
-      </div>
-    </div>
-  </section>
 
-  <!-- Indicadores -->
-  <section class="row g-3 mt-0">
-    <div class="col-6 col-lg-3">
-      <div class="card kpi">
-        <div class="eyebrow">Menor preço atual</div>
-        <div class="kpi-value" [class.price-down]="s.target_reached">{{ s.best_price_cents | brl }}</div>
-        <div class="kpi-sub">{{ s.best_store ? storeSvc.name(s.best_store) : 'aguardando consulta' }}</div>
-      </div>
-    </div>
-    <div class="col-6 col-lg-3">
-      <div class="card kpi">
-        <div class="eyebrow">Preço-alvo</div>
-        <div class="kpi-value">{{ p.target_price_cents | brl }}</div>
-        <div class="kpi-sub">
-          @if (gapToTarget(); as g) {
-            @if (g > 0) { faltam {{ g | brl }} } @else { atingido }
-          } @else if (gapToTarget() === 0) { atingido } @else { — }
-        </div>
-      </div>
-    </div>
-    <div class="col-6 col-lg-3">
-      <div class="card kpi">
-        <div class="eyebrow">Variação</div>
-        @if (s.variation_percent !== null) {
-          <div class="kpi-value" [class.price-down]="s.variation_percent < 0" [class.price-up]="s.variation_percent > 0">
-            {{ s.variation_percent | number: '1.0-1' }}%
+        <!-- Preço -->
+        <div class="price-block mt-3">
+          <div class="d-flex flex-wrap align-items-end gap-3">
+            <div class="min-w-0">
+              <div class="eyebrow mb-1">Menor preço agora</div>
+              @if (s.best_price_cents !== null) {
+                <div class="hero-price tabular" [class.price-down]="!!s.highlight">{{ s.best_price_cents | brl }}</div>
+                <div class="small text-muted-pw mt-1">
+                  na <span class="store-chip" [attr.data-store]="s.best_store">{{ storeSvc.name(s.best_store) }}</span>
+                  @if (s.variation_percent !== null && s.variation_percent !== 0) {
+                    <span class="ms-1" [class.price-down]="s.variation_percent < 0" [class.price-up]="s.variation_percent > 0">
+                      <i class="bi" [class.bi-arrow-down-right]="s.variation_percent < 0" [class.bi-arrow-up-right]="s.variation_percent > 0"></i>
+                      {{ s.variation_percent | number: '1.0-1' }}% desde a consulta anterior
+                    </span>
+                  }
+                </div>
+              } @else {
+                <div class="hero-price text-muted-pw">—</div>
+                <div class="small text-muted-pw mt-1">aguardando a primeira consulta</div>
+              }
+            </div>
+            @if (s.best_url && !s.highlight) {
+              <a class="btn btn-primary ms-sm-auto" [href]="s.best_url" target="_blank" rel="noopener noreferrer">
+                Ver na loja <i class="bi bi-box-arrow-up-right ms-1"></i>
+              </a>
+            }
           </div>
-          <div class="kpi-sub">desde a consulta anterior</div>
-        } @else {
-          <div class="kpi-value">—</div><div class="kpi-sub">sem consultas anteriores</div>
-        }
-      </div>
-    </div>
-    <div class="col-6 col-lg-3">
-      <div class="card kpi">
-        <div class="eyebrow">Última verificação</div>
-        <div class="kpi-value fs-6 mt-2">{{ s.last_checked_at ? (s.last_checked_at | date: 'dd/MM/yyyy HH:mm') : 'Nenhuma ainda' }}</div>
+
+          @if (p.target_price_cents !== null) {
+            <div class="mt-3">
+              <div class="d-flex justify-content-between small mb-1">
+                <span class="text-muted-pw">Seu alvo <span class="text-body tabular fw-semibold">{{ p.target_price_cents | brl }}</span></span>
+                @if (gapToTarget(); as g) {
+                  @if (g > 0) { <span class="text-muted-pw">faltam <span class="text-body tabular">{{ g | brl }}</span></span> }
+                  @else { <span class="price-down fw-semibold"><i class="bi bi-check2-circle me-1"></i>atingido</span> }
+                } @else if (gapToTarget() === 0) {
+                  <span class="price-down fw-semibold"><i class="bi bi-check2-circle me-1"></i>atingido</span>
+                }
+              </div>
+              <div class="target-bar" [class.hit]="s.target_reached"><span [style.width.%]="targetProgress()"></span></div>
+            </div>
+          } @else {
+            <div class="small text-muted-pw mt-3">
+              Sem preço-alvo. <a [routerLink]="['/produtos', p.id, 'editar']">Definir um alvo</a> para ver este produto em destaque quando o preço chegar lá.
+            </div>
+          }
+        </div>
+
+        <div class="d-flex flex-wrap align-items-center gap-2 mt-3 pt-1">
+          <a class="btn btn-outline-secondary btn-sm" [routerLink]="['/produtos', p.id, 'editar']"><i class="bi bi-pencil me-1"></i>Editar</a>
+          <button type="button" class="btn btn-outline-secondary btn-sm" (click)="toggleActive()">
+            <i class="bi me-1" [class.bi-pause]="p.active" [class.bi-play]="!p.active"></i>{{ p.active ? 'Pausar' : 'Retomar' }}
+          </button>
+          <button type="button" class="btn btn-ghost btn-sm text-danger" (click)="deleteProduct()"><i class="bi bi-trash me-1"></i>Excluir</button>
+          <span class="small text-muted-pw ms-auto">
+            <i class="bi bi-clock me-1"></i>{{ s.last_checked_at ? ('verificado ' + (s.last_checked_at | date: "dd/MM 'às' HH:mm")) : 'ainda não verificado' }}
+          </span>
+        </div>
       </div>
     </div>
   </section>

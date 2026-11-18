@@ -1,5 +1,6 @@
 import { DatePipe } from '@angular/common';
 import { Component, OnDestroy, OnInit, inject, signal } from '@angular/core';
+import { RouterLink } from '@angular/router';
 import { forkJoin } from 'rxjs';
 
 import { ApiService, HealthResponse, StatsResponse, describeError } from '../../core/api.service';
@@ -9,7 +10,7 @@ import { AccessInfo, AppSettings, DiagnosticItem, MonitorStatus } from '../../co
 /** Saúde do sistema + configurações e execuções do monitoramento. */
 @Component({
   selector: 'app-status-page',
-  imports: [DatePipe],
+  imports: [DatePipe, RouterLink],
   templateUrl: './status.html',
   styles: `
     .metric { font-size: 1.75rem; font-weight: 600; }

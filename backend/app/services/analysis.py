@@ -326,4 +326,26 @@ def brief(analysis: dict | None) -> dict | None:
         "label": analysis["label"],
         "tone": analysis["tone"],
         "headline": analysis["reasons"][0] if analysis["reasons"] else None,
+        "baseline_cents": analysis["metrics"]["baseline_cents"],
+        "real_discount_pct": analysis["metrics"]["real_discount_pct"],
+        "lowest_cents": (analysis["metrics"]["lowest"] or {}).get("price_cents"),
     }
+
+
+def product_trend(product: Product, days: int = 30) -> list[int]:
+    """Menor preço por dia (entre as lojas) nos últimos `days` dias — para o mini-gráfico."""
+    ids = [o.id for o in product.offers]
+    if not ids:
+        return []
+    since = datetime.now(timezone.utc).replace(tzinfo=None) - timedelta(days=days)
+    rows = db.session.execute(
+        db.select(PriceHistory.checked_at, PriceHistory.price_cents)
+        .where(PriceHistory.offer_id.in_(ids), PriceHistory.price_cents.is_not(None),
+               PriceHistory.checked_at >= since)
+        .order_by(PriceHistory.checked_at)
+    ).all()
+    by_day: dict = {}
+    for at, cents in rows:
+        d = _local_day(at)
+        by_day[d] = min(by_day.get(d, cents), cents)
+    return [by_day[d] for d in sorted(by_day)]

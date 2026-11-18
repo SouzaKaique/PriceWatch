@@ -82,6 +82,8 @@ export interface ProductSummary {
   stores: StoreKey[];
   last_checked_at: string | null;
   analysis: AnalysisBrief | null;
+  /** Preço bom de verdade → destaque no site. */
+  highlight: { reason: 'target' | 'great' | 'good'; label: string } | null;
 }
 
 export interface Product {
@@ -99,6 +101,10 @@ export interface Product {
   updated_at: string;
   offers: Offer[];
   summary: ProductSummary;
+  /** Foto do produto ou, se não houver, a da melhor oferta. */
+  display_image_url: string | null;
+  /** Menor preço por dia nos últimos 30 dias (para o mini-gráfico). */
+  trend: number[];
 }
 
 export interface ProductInput {
@@ -270,6 +276,9 @@ export interface AnalysisBrief {
   label: string;
   tone: 'green' | 'muted' | 'orange' | 'red';
   headline: string | null;
+  baseline_cents: number | null;
+  real_discount_pct: number | null;
+  lowest_cents: number | null;
 }
 
 export interface WindowStats {

@@ -72,6 +72,16 @@ def lookup(url: str, use_cache: bool = True) -> ProductData:
     return data
 
 
+def fill_product_from_store(product, data: ProductData) -> None:
+    """Completa só o que estiver vazio no produto (foto, marca, modelo, categoria) com dados da loja."""
+    if product is None:
+        return
+    for field, value in (("image_url", data.image_url), ("brand", data.brand),
+                         ("model", data.model), ("category", data.category)):
+        if value and not getattr(product, field):
+            setattr(product, field, value[:1000] if field == "image_url" else value[:160])
+
+
 def apply_to_offer(offer: Offer, data: ProductData) -> None:
     """Grava o resultado de uma consulta real na oferta e no histórico."""
     now = utcnow()
@@ -82,6 +92,7 @@ def apply_to_offer(offer: Offer, data: ProductData) -> None:
     offer.mpn = data.mpn or offer.mpn
     offer.gtin = data.gtin or offer.gtin
     offer.image_url = data.image_url or offer.image_url
+    fill_product_from_store(offer.product, data)
 
     if data.price_cents is not None:
         if offer.current_price_cents is not None and offer.current_price_cents != data.price_cents:

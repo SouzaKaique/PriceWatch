@@ -227,7 +227,7 @@ até que um adaptador real obtenha o preço — nenhum valor é estimado.
 | App mostra "Sem conexão com o PRICE WATCH" | backend parado ou PC desligado — os últimos dados salvos continuam visíveis |
 | "PRICE WATCH já está rodando" ao iniciar | já há uma instância; use `scripts\parar-backend.ps1` se quiser reiniciar |
 | Loja aparece como "Loja bloqueou" | proteção anti-robô da loja; registre o preço manualmente (Integrações explica cada loja) |
-| Alertas não chegam | **Alertas → Enviar teste**; veja o histórico de envios e o diagnóstico |
+| Alertas não chegam | **Sistema → Regras de alerta e canais → Enviar teste**; veja o histórico de envios e o diagnóstico |
 | Celular não abre o endereço `.ts.net` | Tailscale ligado no celular e no PC, e `tailscale serve --bg 5000` ativo |
 | Celular não abre `https://IP:5443` | mesmo Wi-Fi; Firewall do Windows liberado em redes privadas; certificado instalado **e** marcado como confiável (iPhone); IP do PC não mudou (veja Sistema) |
 | "Chave de acesso" no celular | é a `API_ACCESS_KEY` do `backend\.env` (o script mostra ao configurar) |
@@ -411,12 +411,12 @@ Depois de reiniciar o backend:
 2. **iPhone:** abra `http://IP-DO-PC:5001` no Safari → *Baixar o certificado* → Ajustes → *Perfil
    Transferido* → Instalar → Ajustes → Geral → Sobre → *Ajustes de Confiança de Certificados* → ative
    **PRICE WATCH Local CA**. Abra `https://IP-DO-PC:5443` → Compartilhar → *Adicionar à Tela de Início* →
-   abra pelo ícone → **Alertas → Ativar neste aparelho**. (Web Push no iPhone exige iOS 16.4+.)
+   abra pelo ícone → **Sistema → Regras de alerta e canais → Ativar neste aparelho**. (Web Push no iPhone exige iOS 16.4+.)
 3. **Android:** baixe o certificado na mesma página → Configurações → Segurança → *Instalar certificado
    → Certificado de CA* (o caminho varia por fabricante) → abra `https://IP-DO-PC:5443` no Chrome →
-   *Instalar app* → **Alertas → Ativar neste aparelho**.
+   *Instalar app* → **Sistema → Regras de alerta e canais → Ativar neste aparelho**.
 
-Os endereços também aparecem em **Sistema → Acesso pelo celular**. Dicas:
+Os endereços também aparecem em **Sistema → Celular e notificações**. Dicas:
 - **Reserve o IP do PC no roteador** (DHCP fixo). Se o IP mudar, rode `configurar_wifi.py` de novo: a
   CA é a mesma (o celular não reinstala o certificado), mas o app precisa ser reinstalado na tela inicial
   pelo novo endereço — o diagnóstico avisa quando isso acontece.
@@ -443,7 +443,7 @@ válido. O backend continua escutando apenas em `127.0.0.1` — nada fica expost
 4. No celular, com o Tailscale ligado, abra esse endereço:
    - **iPhone (Safari):** Compartilhar → **Adicionar à Tela de Início**. Abra pelo ícone criado.
    - **Android (Chrome):** menu → **Instalar app**.
-5. No app instalado: **Alertas → Ativar neste aparelho** → permita notificações → **Enviar teste**.
+5. No app instalado: **Sistema → Regras de alerta e canais → Ativar neste aparelho** → permita notificações → **Enviar teste**.
    (No iPhone, Web Push exige iOS 16.4+ e o app aberto pela Tela de Início.)
 
 Com o PC desligado, o app no celular ainda abre e mostra os **últimos dados salvos** no aparelho;

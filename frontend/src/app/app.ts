@@ -17,11 +17,10 @@ export class App implements OnInit {
   protected readonly keyInput = signal('');
 
   protected readonly nav = [
-    { path: '/', label: 'Dashboard', short: 'Início', icon: 'bi-grid-1x2', exact: true },
-    { path: '/produtos/novo', label: 'Novo produto', short: 'Adicionar', icon: 'bi-plus-circle', exact: true },
+    { path: '/', label: 'Início', short: 'Início', icon: 'bi-house', exact: true },
+    { path: '/produtos/novo', label: 'Adicionar', short: 'Adicionar', icon: 'bi-plus-circle', exact: true },
     { path: '/cupons', label: 'Cupons', short: 'Cupons', icon: 'bi-ticket-perforated', exact: true },
-    { path: '/alertas', label: 'Alertas', short: 'Alertas', icon: 'bi-bell', exact: true },
-    { path: '/integracoes', label: 'Integrações', short: 'Lojas', icon: 'bi-plug', exact: true },
+    { path: '/integracoes', label: 'Lojas', short: 'Lojas', icon: 'bi-shop', exact: true },
     { path: '/status', label: 'Sistema', short: 'Sistema', icon: 'bi-hdd-stack', exact: true },
   ];
 

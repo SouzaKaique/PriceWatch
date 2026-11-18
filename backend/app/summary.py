@@ -36,7 +36,7 @@ def product_summary(product: Product) -> dict:
 
 
 def product_payload(product: Product, include_offers: bool = True) -> dict:
-    from .services.analysis import analyze_offer, brief
+    from .services.analysis import analyze_offer, brief, product_trend
 
     data = product.to_dict(include_offers=include_offers)
     analyses = {o.id: analyze_offer(o) for o in product.offers}
@@ -48,4 +48,30 @@ def product_payload(product: Product, include_offers: bool = True) -> dict:
     data["summary"] = product_summary(product)
     best = data["summary"]["best_offer_id"]
     data["summary"]["analysis"] = brief(analyses.get(best)) if best else None
+    data["summary"]["highlight"] = highlight(data["summary"])
+    data["display_image_url"] = display_image(product, best)
+    data["trend"] = product_trend(product)
     return data
+
+
+def display_image(product: Product, best_offer_id: int | None) -> str | None:
+    """Foto do produto; sem ela, a da melhor oferta (ou de qualquer loja)."""
+    if product.image_url:
+        return product.image_url
+    offers = sorted(product.offers, key=lambda o: o.id != best_offer_id)
+    return next((o.image_url for o in offers if o.image_url), None)
+
+
+HIGHLIGHT_ORDER = {"target": 0, "great": 1, "good": 2}
+
+
+def highlight(summary: dict) -> dict | None:
+    """Produto com preço bom de verdade → destaque no site."""
+    a = summary.get("analysis") or {}
+    if summary.get("target_reached"):
+        return {"reason": "target", "label": "Preço-alvo atingido"}
+    if a.get("classification") == "great":
+        return {"reason": "great", "label": "Ótima oportunidade"}
+    if a.get("classification") == "good":
+        return {"reason": "good", "label": "Boa oportunidade"}
+    return None

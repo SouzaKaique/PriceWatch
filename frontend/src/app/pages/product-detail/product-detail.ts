@@ -19,11 +19,41 @@ import { AnalysisPanel } from '../../shared/analysis-panel';
 import { CouponCard } from '../../shared/coupon-card';
 import { EventList } from '../../shared/event-list';
 import { PriceChart } from '../../shared/price-chart';
+import { ProductImage } from '../../shared/product-image';
 
 @Component({
   selector: 'app-product-detail-page',
-  imports: [RouterLink, DatePipe, DecimalPipe, BrlPipe, PriceChart, EventList, AnalysisPanel, AnalysisBadge, CouponCard],
+  imports: [
+    RouterLink, DatePipe, DecimalPipe, BrlPipe, PriceChart, EventList, AnalysisPanel, AnalysisBadge, CouponCard, ProductImage,
+  ],
   templateUrl: './product-detail.html',
+  styles: `
+    .back-link { font-size: 0.85rem; color: var(--pw-muted); text-decoration: none; }
+    .back-link:hover { color: var(--pw-text); }
+    .hero { padding: 1rem; }
+    @media (min-width: 768px) { .hero { padding: 1.5rem; } }
+    @media (max-width: 767.98px) { .hero-media app-product-image { display: block; max-width: 13rem; margin: 0 auto; } }
+    .hero.hot { border-color: rgba(180, 240, 90, 0.4); box-shadow: 0 0 0 1px rgba(180, 240, 90, 0.08), var(--pw-shadow); }
+    .hero-title { font-size: clamp(1.2rem, 2.4vw, 1.6rem); font-weight: 700; line-height: 1.3; letter-spacing: -0.015em; margin: 0; }
+    .hero-meta { display: flex; flex-wrap: wrap; gap: 0.2rem 0.9rem; margin-top: 0.45rem; font-size: 0.85rem; color: var(--pw-muted); }
+    .price-block { padding: 1rem 1.1rem; border-radius: 0.9rem; background: var(--pw-surface-2); border: 1px solid var(--pw-border-soft); }
+    .hero-price { font-size: clamp(1.9rem, 4vw, 2.5rem); font-weight: 800; letter-spacing: -0.03em; line-height: 1.05; }
+    .hero-chip {
+      position: absolute; top: 0.7rem; left: 0.7rem; font-size: 0.75rem; font-weight: 600; padding: 0.28rem 0.6rem;
+      border-radius: 999px; background: rgba(11, 17, 32, 0.85); color: #c6cfdf;
+    }
+    .deal-banner {
+      display: flex; align-items: center; gap: 0.85rem; padding: 0.85rem 1rem; border-radius: var(--pw-radius);
+      background: linear-gradient(100deg, var(--pw-green), #8fdc3f); color: #0b1120;
+    }
+    .deal-banner strong { font-size: 1rem; }
+    .deal-banner > div { flex: 1 1 12rem; }
+    .deal-banner-icon {
+      flex-shrink: 0; width: 2.4rem; height: 2.4rem; border-radius: 0.8rem; display: inline-flex; align-items: center;
+      justify-content: center; background: rgba(11, 17, 32, 0.12); font-size: 1.2rem;
+    }
+    @media (max-width: 575.98px) { .deal-banner { flex-wrap: wrap; } .deal-banner .btn { margin-left: 0 !important; } }
+  `,
 })
 export class ProductDetailPage implements OnInit {
   readonly id = input.required<string>();
@@ -38,7 +68,6 @@ export class ProductDetailPage implements OnInit {
   protected readonly newUrl = signal('');
   protected readonly offerError = signal<string | null>(null);
   protected readonly busy = signal(false);
-  protected imgFailed = false;
 
   /** Ofertas ordenadas: com preço (menor primeiro) e depois as ainda não consultadas. */
   protected readonly offers = computed(() => {
@@ -52,6 +81,15 @@ export class ProductDetailPage implements OnInit {
     const p = this.product();
     if (!p || p.target_price_cents === null || p.summary.best_price_cents === null) return null;
     return p.summary.best_price_cents - p.target_price_cents;
+  });
+
+  /** Quão perto o menor preço está do alvo (100% = atingido). */
+  protected readonly targetProgress = computed(() => {
+    const p = this.product();
+    const best = p?.summary.best_price_cents ?? null;
+    if (!p || p.target_price_cents === null || best === null || best <= 0) return 0;
+    if (p.summary.target_reached) return 100;
+    return Math.max(4, Math.min(100, (p.target_price_cents / best) * 100));
   });
 
   // ---- Histórico e eventos ----

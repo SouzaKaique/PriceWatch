@@ -1,7 +1,7 @@
 <header class="topbar">
-  <div class="container-lg d-flex align-items-center justify-content-between py-2">
+  <div class="container-lg d-flex align-items-center justify-content-between py-2 gap-2">
     <a class="brand d-flex align-items-center gap-2" routerLink="/">
-      <i class="bi bi-activity brand-mark fs-5"></i>
+      <img class="brand-logo" src="icons/icon-96x96.png" alt="" width="30" height="30" />
       PRICE WATCH
     </a>
     @if (pwa.canInstall() && !pwa.standalone()) {
@@ -9,7 +9,7 @@
         <i class="bi bi-download me-1"></i>Instalar app
       </button>
     }
-    <nav class="d-none d-md-flex gap-1" aria-label="Navegação principal">
+    <nav class="d-none d-md-flex gap-1 top-nav" aria-label="Navegação principal">
       @for (item of nav; track item.path) {
         <a
           class="top-link"

@@ -6,6 +6,8 @@ import { AnalysisBrief, Coupon, HistorySeries } from '../core/models';
 import { AnalysisBadge } from './analysis-badge';
 import { CouponCard } from './coupon-card';
 import { PriceChart } from './price-chart';
+import { ProductImage, categoryIcon } from './product-image';
+import { Sparkline } from './sparkline';
 
 const providers = [provideHttpClient(), provideHttpClientTesting()];
 
@@ -89,7 +91,8 @@ describe('AnalysisBadge', () => {
   beforeEach(() => TestBed.configureTestingModule({ imports: [AnalysisBadge] }));
 
   it('hides "insufficient data" in lists when asked', () => {
-    const a: AnalysisBrief = { classification: 'insufficient', label: 'Dados insuficientes', tone: 'muted', headline: null };
+    const a: AnalysisBrief = { classification: 'insufficient', label: 'Dados insuficientes', tone: 'muted', headline: null,
+      baseline_cents: null, real_discount_pct: null, lowest_cents: null };
     const f = TestBed.createComponent(AnalysisBadge);
     f.componentRef.setInput('analysis', a);
     f.componentRef.setInput('hideInsufficient', true);
@@ -98,5 +101,52 @@ describe('AnalysisBadge', () => {
     f.componentRef.setInput('hideInsufficient', false);
     f.detectChanges();
     expect((f.nativeElement as HTMLElement).textContent).toContain('Dados insuficientes');
+  });
+});
+
+describe('ProductImage', () => {
+  beforeEach(() => TestBed.configureTestingModule({ imports: [ProductImage] }));
+
+  it('shows the photo and falls back to the category icon when it fails', () => {
+    const f = TestBed.createComponent(ProductImage);
+    f.componentRef.setInput('src', 'https://images.example/x.jpg');
+    f.componentRef.setInput('category', 'Monitores');
+    f.detectChanges();
+    const el = f.nativeElement as HTMLElement;
+    const img = el.querySelector('img')!;
+    expect(img.getAttribute('referrerpolicy')).toBe('no-referrer');
+    img.dispatchEvent(new Event('error'));
+    f.detectChanges();
+    expect(el.querySelector('img')).toBeNull();
+    expect(el.querySelector('i.bi-display')).not.toBeNull();
+  });
+
+  it('maps categories to icons, with a generic default', () => {
+    expect(categoryIcon('Placa de Vídeo')).toBe('bi-gpu-card');
+    expect(categoryIcon('Mouse')).toBe('bi-mouse');
+    expect(categoryIcon(null)).toBe('bi-box-seam');
+  });
+});
+
+describe('Sparkline', () => {
+  beforeEach(() => TestBed.configureTestingModule({ imports: [Sparkline] }));
+
+  function render(values: number[]) {
+    const f = TestBed.createComponent(Sparkline);
+    f.componentRef.setInput('values', values);
+    f.detectChanges();
+    return f.nativeElement as HTMLElement;
+  }
+
+  it('does not draw a trend with fewer than two days', () => {
+    const el = render([46900]);
+    expect(el.querySelector('svg')).toBeNull();
+    expect(el.textContent).toContain('histórico começa');
+  });
+
+  it('is green when today is the lowest price of the period', () => {
+    const el = render([52000, 50000, 46900]);
+    expect(el.querySelectorAll('path')[1].getAttribute('stroke')).toBe('var(--pw-green)');
+    expect(render([46900, 52000]).querySelectorAll('path')[1].getAttribute('stroke')).toBe('var(--pw-blue)');
   });
 });

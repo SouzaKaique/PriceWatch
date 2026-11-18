@@ -1,6 +1,6 @@
-<div class="d-flex align-items-center justify-content-between mb-4 gap-3 flex-wrap">
+<div class="page-header">
   <div>
-    <h1 class="h4 mb-1">Sistema</h1>
+    <h1>Sistema</h1>
     <p class="text-muted-pw mb-0 small">Saúde do app, monitoramento automático e suas configurações.</p>
   </div>
   <button type="button" class="btn btn-outline-secondary btn-sm" (click)="refresh()" [disabled]="loading()">
@@ -103,7 +103,13 @@
     <div class="col-12">
       <section class="card p-3 p-md-4">
         <div class="d-flex justify-content-between align-items-start flex-wrap gap-2 mb-2">
-          <div class="label">Acesso pelo celular</div>
+          <div>
+            <div class="label">Celular e notificações <span class="text-muted-pw fw-normal">(opcional)</span></div>
+            <p class="small text-muted-pw mb-0 mt-1">
+              Não é preciso configurar nada disso: produtos com preço bom já aparecem em destaque no início.
+              <a routerLink="/alertas">Regras de alerta e canais</a>
+            </p>
+          </div>
           <span class="badge-soft" [class.green]="ac.mode === 'wifi'" [class.muted]="ac.mode === 'local'" [class.orange]="ac.mode === 'rede_sem_https'">
             {{ ac.mode === 'wifi' ? 'Wi-Fi com HTTPS' : ac.mode === 'local' ? 'Só este computador' : 'Rede sem HTTPS' }}
           </span>
@@ -129,7 +135,9 @@
             }
           </p>
         } @else if (ac.mode === 'local') {
-          <p class="small mb-2">
+          <details class="mt-2">
+          <summary class="small">Como abrir no celular e receber notificações</summary>
+          <p class="small mb-2 mt-2">
             Para receber notificações <strong>do próprio app no celular</strong> (sem Telegram), o celular precisa abrir o
             PRICE WATCH por HTTPS uma vez. Sem conta e sem serviço externo, pelo Wi-Fi de casa:
           </p>
@@ -143,6 +151,7 @@
             Para também <em>abrir</em> o app fora de casa, use o Tailscale (veja o guia).
             @if (ac.lan_ips.length) { IP deste PC na rede: {{ ac.lan_ips.join(', ') }}. }
           </p>
+          </details>
         } @else {
           <p class="small text-warning mb-0">
             O app está visível na rede sem HTTPS: o celular abre, mas não instala nem recebe notificações. Rode
