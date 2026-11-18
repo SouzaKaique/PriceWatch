@@ -54,7 +54,7 @@ import { ProductImage } from './product-image';
   `,
   styles: `
     .deal {
-      display: grid; grid-template-columns: 9.5rem 1fr; gap: 1rem; padding: 0.85rem;
+      display: grid; grid-template-columns: clamp(6.5rem, 33%, 9.5rem) 1fr; gap: 1rem; padding: 0.85rem;
       border-radius: var(--pw-radius); border: 1px solid rgba(180, 240, 90, 0.35);
       background:
         radial-gradient(120% 140% at 100% 0%, rgba(180, 240, 90, 0.09), transparent 55%),

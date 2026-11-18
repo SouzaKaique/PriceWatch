@@ -58,7 +58,7 @@
   </tr>
   <tr>
     <td align="center"><sub><b>Cupons com código para copiar</b></sub></td>
-    <td align="center"><sub><b>Alertas no celular: canais e preferências</b></sub></td>
+    <td align="center"><sub><b>Alertas no celular (opcional): canais e preferências</b></sub></td>
   </tr>
 </table>
 
