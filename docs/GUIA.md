@@ -26,7 +26,8 @@ PriceWatch/
 │   │   │                    coupons (coleta oficial, aplicabilidade, estimativa),
 │   │   │                    notify (Telegram/ntfy/Web Push, preferências, silêncio, limites),
 │   │   │                    webpush (chaves VAPID locais, inscrições, envio),
-│   │   │                    maintenance (integridade, backups), diagnostics
+│   │   │                    maintenance (integridade, backups), diagnostics,
+│   │   │                    wishlist_import (leitura de PDF/texto da lista de desejos)
 │   │   ├── scheduler.py     APScheduler: rodadas periódicas + retomada após reinício
 │   │   ├── migrations.py    adiciona colunas novas ao SQLite sem perder dados
 │   │   ├── stores.py        lojas suportadas + detecção da loja pelo domínio do link
@@ -42,6 +43,7 @@ PriceWatch/
 │   ├── tests/               98 testes (pytest): API, lojas, falhas de rede, análise, cupons,
 │   │                        alertas, Web Push, reinício/queda, backups — sem acessar a internet
 │   ├── diagnostico.py       verificação de saúde pela linha de comando
+│   ├── configurar_wifi.py   HTTPS próprio para o celular no Wi-Fi (certificado local + .env)
 │   ├── instance/            pricewatch.db, pricewatch.log, pricewatch.pid (não versionados)
 │   ├── .env.example
 │   ├── requirements.txt
@@ -160,6 +162,9 @@ npx ng test --watch=false
 |---|---|---|
 | GET | `/api/health` | saúde da API e do banco |
 | GET | `/api/diagnostics` | verificações com orientação (tela Sistema) |
+| GET | `/api/access` | como abrir pelo celular (modo, endereços, certificado — sem a chave) |
+| POST | `/api/import/parse` | lê a lista (PDF em `file` ou JSON `{text}`) e devolve itens para revisão |
+| POST | `/api/products/import` | cria vários produtos de uma vez (ignora links já monitorados) |
 | GET | `/api/stats` | indicadores do dashboard |
 | GET | `/api/stores` | lojas suportadas |
 | POST | `/api/lookup` | identifica um produto pelo link (consulta real) |
@@ -224,6 +229,8 @@ até que um adaptador real obtenha o preço — nenhum valor é estimado.
 | Loja aparece como "Loja bloqueou" | proteção anti-robô da loja; registre o preço manualmente (Integrações explica cada loja) |
 | Alertas não chegam | **Alertas → Enviar teste**; veja o histórico de envios e o diagnóstico |
 | Celular não abre o endereço `.ts.net` | Tailscale ligado no celular e no PC, e `tailscale serve --bg 5000` ativo |
+| Celular não abre `https://IP:5443` | mesmo Wi-Fi; Firewall do Windows liberado em redes privadas; certificado instalado **e** marcado como confiável (iPhone); IP do PC não mudou (veja Sistema) |
+| "Chave de acesso" no celular | é a `API_ACCESS_KEY` do `backend\.env` (o script mostra ao configurar) |
 
 ## Segurança
 
@@ -276,6 +283,36 @@ Exemplo da especificação (R$ 899 → 899 → 1.199 → 999, anunciado "de R$ 1
 **possível promoção enganosa** — habitual R$ 899,00, desconto anunciado 17%, real negativo.
 Mudanças de classificação para *ótima oportunidade* ou *possível promoção enganosa* geram eventos
 (base das notificações da Fase 8).
+
+## Importar lista de desejos (PDF)
+
+**Dashboard → Importar lista** (ou `/produtos/importar`). O arquivo é só lido — não fica guardado.
+
+1. **Enviar** um PDF (até 20 MB / 150 páginas) ou **colar** texto/links.
+2. **Revisar:** o app lista os produtos encontrados e já consulta cada link na loja (uma consulta a
+   cada ~5 s por loja), trazendo nome, imagem e preço atual. Em cada item dá para editar o nome,
+   remover/adicionar links de outras lojas, definir o preço-alvo (ou "usar como alvo" o preço que
+   aparece no PDF) e desmarcar o que não quer.
+3. **Importar** os selecionados de uma vez. Os preços consultados na revisão viram o primeiro ponto do
+   histórico, e os produtos com link entram no monitoramento automático.
+
+O que é reconhecido:
+
+| No PDF | Como é usado |
+|---|---|
+| Links clicáveis (ex.: página de favoritos "Imprimir → Salvar como PDF") | nome do produto = texto do link; loja = endereço; preço = o mais próximo abaixo do nome |
+| Links escritos (`https://…`) | oferta do produto da linha de cima (lojas diferentes se juntam no mesmo produto) |
+| Linhas com nome e preço (`SSD Kingston NV3 1TB R$ 419,90`) | produto com "preço no PDF" |
+| `até` / `alvo` / `máx` antes do preço (`Monitor LG — até R$ 750`) | preço-alvo |
+
+- Só **páginas de produto** das lojas suportadas viram ofertas; menus, carrinho, busca, rodapés e
+  avisos legais são descartados.
+- Produtos que já estão no PRICE WATCH (mesmo link, ou mesmo nome para itens sem link) aparecem como
+  **já monitorados** e desmarcados — importar de novo não duplica.
+- Itens **sem link** podem ser importados (e recebem o link depois, na página do produto) ou ganhar
+  um link na própria revisão.
+- PDF **digitalizado** (imagem, sem texto) não tem o que ler: o app avisa e sugere exportar com texto
+  ou colar a lista.
 
 ## Cupons
 
@@ -344,10 +381,55 @@ quem confirma é você, na página do produto.
 
 ## Usar no celular (iPhone e Android)
 
-O celular precisa de um endereço **HTTPS** para instalar o PWA e receber Web Push. Sem hospedagem
-paga, a forma recomendada é o **Tailscale** (plano Personal gratuito para uso pessoal, sem cartão):
-cria uma rede privada só entre os seus aparelhos e dá ao seu PC um endereço HTTPS válido. O backend
-continua escutando apenas em `127.0.0.1` — nada fica exposto na internet ou no Wi-Fi.
+O celular precisa abrir o app por **HTTPS** (uma vez) para instalar o PWA e se inscrever no Web Push.
+Depois de inscrito, os alertas chegam pelo serviço de push do próprio celular (Apple/Google, gratuito e
+sem conta) **em qualquer lugar**, enquanto o PC estiver ligado. Duas opções gratuitas:
+
+### Opção A — Wi-Fi de casa, com HTTPS próprio (sem conta, sem serviço externo)
+
+```powershell
+cd "PriceWatch\backend"
+.\.venv\Scripts\python configurar_wifi.py
+```
+
+O script:
+- cria uma **autoridade certificadora local** ("PRICE WATCH Local CA") e um certificado para os IPs e o
+  nome deste PC (`backend\instance\certs\`, fora do git; a chave da CA nunca sai do PC);
+- atualiza o `backend\.env` (backup em `.env.bak`): `HOST=0.0.0.0`, `HTTPS_CERT_FILE`, `HTTPS_KEY_FILE`
+  e uma **chave de acesso** `API_ACCESS_KEY` fácil de digitar (obrigatória: o backend se recusa a iniciar
+  visível na rede sem ela).
+
+Depois de reiniciar o backend:
+
+| Onde | Endereço |
+|---|---|
+| Este PC | `http://localhost:5000` (sem aviso de certificado e sem chave) |
+| Página do certificado (celular) | `http://IP-DO-PC:5001` — só serve as instruções e o certificado público |
+| App no celular | `https://IP-DO-PC:5443` — pede a chave de acesso uma vez |
+
+1. Se o Windows perguntar sobre o Firewall, permita o Python em **redes privadas**.
+2. **iPhone:** abra `http://IP-DO-PC:5001` no Safari → *Baixar o certificado* → Ajustes → *Perfil
+   Transferido* → Instalar → Ajustes → Geral → Sobre → *Ajustes de Confiança de Certificados* → ative
+   **PRICE WATCH Local CA**. Abra `https://IP-DO-PC:5443` → Compartilhar → *Adicionar à Tela de Início* →
+   abra pelo ícone → **Alertas → Ativar neste aparelho**. (Web Push no iPhone exige iOS 16.4+.)
+3. **Android:** baixe o certificado na mesma página → Configurações → Segurança → *Instalar certificado
+   → Certificado de CA* (o caminho varia por fabricante) → abra `https://IP-DO-PC:5443` no Chrome →
+   *Instalar app* → **Alertas → Ativar neste aparelho**.
+
+Os endereços também aparecem em **Sistema → Acesso pelo celular**. Dicas:
+- **Reserve o IP do PC no roteador** (DHCP fixo). Se o IP mudar, rode `configurar_wifi.py` de novo: a
+  CA é a mesma (o celular não reinstala o certificado), mas o app precisa ser reinstalado na tela inicial
+  pelo novo endereço — o diagnóstico avisa quando isso acontece.
+- Fora de casa, o app instalado abre com os últimos dados salvos; para consultá-lo ao vivo de fora, use
+  a opção B.
+- Para desfazer: `.\.venv\Scripts\python configurar_wifi.py --desfazer` e reinicie (no celular, remova
+  o perfil/certificado em Ajustes, se quiser).
+
+### Opção B — Tailscale (também abre o app fora de casa)
+
+A forma recomendada para acesso de qualquer lugar é o **Tailscale** (plano Personal gratuito para uso
+pessoal, sem cartão): cria uma rede privada só entre os seus aparelhos e dá ao seu PC um endereço HTTPS
+válido. O backend continua escutando apenas em `127.0.0.1` — nada fica exposto na internet ou no Wi-Fi.
 
 1. Instale o Tailscale no PC (https://tailscale.com/download) e no celular (App Store / Google Play)
    e entre com a **mesma conta** nos dois.
@@ -382,7 +464,7 @@ qualquer lugar, sem hospedagem e sem abrir portas no seu roteador. Configure em 
 |---|---|---|
 | **Telegram** (recomendado) | gratuito, sem cartão | No Telegram, `@BotFather` → `/newbot` → copie o token para `TELEGRAM_BOT_TOKEN` no `backend/.env` → reinicie o backend → envie `/start` ao seu bot → **Conectar**. |
 | **ntfy** | gratuito, sem conta (servidor público ntfy.sh, com limites) | Instale o app ntfy, escolha um tópico longo e aleatório (o app sugere um), coloque em `NTFY_TOPIC` no `.env`, reinicie e assine o mesmo tópico no app. O nome do tópico funciona como senha. |
-| **Web Push** | gratuito, sem conta | Notificação do próprio app instalado: abra o PRICE WATCH por HTTPS (veja "Usar no celular"), instale na tela inicial e, em **Alertas**, toque em **Ativar neste aparelho**. Chaves VAPID geradas localmente em `backend/instance/`. |
+| **Web Push** | gratuito, sem conta | Notificação do próprio app instalado, sem Telegram: abra o PRICE WATCH por HTTPS (Wi-Fi de casa ou Tailscale — veja "Usar no celular"), instale na tela inicial e, em **Alertas**, toque em **Ativar neste aparelho**. Chaves VAPID geradas localmente em `backend/instance/`. |
 
 Exemplo (preço-alvo atingido):
 

@@ -13,6 +13,11 @@ export const routes: Routes = [
     loadComponent: () => import('./pages/product-form/product-form').then((m) => m.ProductFormPage),
   },
   {
+    path: 'produtos/importar',
+    title: 'Importar lista · PRICE WATCH',
+    loadComponent: () => import('./pages/import/import').then((m) => m.ImportPage),
+  },
+  {
     path: 'produtos/:id/editar',
     title: 'Editar produto · PRICE WATCH',
     loadComponent: () => import('./pages/product-form/product-form').then((m) => m.ProductFormPage),

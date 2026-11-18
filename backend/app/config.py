@@ -23,6 +23,8 @@ class Config:
         f"sqlite:///{(Path(os.getenv('PRICEWATCH_INSTANCE_DIR') or BASE_DIR / 'instance') / 'pricewatch.db').as_posix()}",
     )
     SQLALCHEMY_TRACK_MODIFICATIONS = False
+    # Uploads (PDF da lista de desejos) até 25 MB
+    MAX_CONTENT_LENGTH = 25 * 1024 * 1024
     # Espera até 15 s se o banco estiver ocupado (API + agendador + envio de alertas em paralelo)
     SQLALCHEMY_ENGINE_OPTIONS = {"connect_args": {"timeout": 15}}
 
@@ -41,6 +43,15 @@ class Config:
     # Chave de acesso opcional. Se definida, toda requisição /api (exceto /api/health)
     # precisa do cabeçalho "X-API-Key". Útil se um dia a API for exposta além do localhost.
     API_ACCESS_KEY = os.getenv("API_ACCESS_KEY", "").strip()
+
+    # HTTPS próprio para o celular no Wi-Fi (gerado por configurar_wifi.py). Caminhos
+    # relativos partem da pasta backend/.
+    HTTPS_CERT_FILE = os.getenv("HTTPS_CERT_FILE", "").strip()
+    HTTPS_KEY_FILE = os.getenv("HTTPS_KEY_FILE", "").strip()
+    # Porta HTTPS para o celular (o PC continua em http://localhost:PORT).
+    HTTPS_PORT = int(os.getenv("HTTPS_PORT", "5443"))
+    # Página para o celular baixar o certificado (só no modo Wi-Fi).
+    CERT_PAGE_PORT = int(os.getenv("CERT_PAGE_PORT", "5001"))
 
     # Build de produção do frontend servido pelo Flask (npm run build).
     FRONTEND_DIST = os.getenv(

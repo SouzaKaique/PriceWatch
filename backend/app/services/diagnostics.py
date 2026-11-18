@@ -104,6 +104,29 @@ def run(include_scheduler: bool = True) -> list[dict]:
                          f"{failures} falha(s) nas últimas 24 h.",
                          "Veja o histórico em Alertas." if failures else None))
 
+    # Acesso pelo celular (Wi-Fi com HTTPS próprio)
+    from ..startup import LOCAL_HOSTS
+    from . import lan
+
+    if current_app.config["HTTPS_CERT_FILE"] and current_app.config["HOST"] not in LOCAL_HOSTS:
+        info = lan.cert_info(Path(current_app.instance_path) / "certs" / "server.crt")
+        ips = lan.lan_ips()
+        if not info:
+            out.append(_item("wifi", "Acesso pelo celular", "error", "Certificado HTTPS não encontrado.",
+                             "Rode 'python configurar_wifi.py' na pasta backend."))
+        elif any(ip not in info["ips"] for ip in ips):
+            out.append(_item("wifi", "Acesso pelo celular", "warn",
+                             f"O IP do PC mudou ({', '.join(ips)}); o certificado cobre {', '.join(info['ips'])}.",
+                             "Rode 'python configurar_wifi.py' de novo e reinicie (o celular não precisa "
+                             "reinstalar o certificado; reinstale o app pela tela inicial no novo endereço)."))
+        elif info["days_left"] < 30:
+            out.append(_item("wifi", "Acesso pelo celular", "warn", f"Certificado expira em {info['days_left']} dia(s).",
+                             "Rode 'python configurar_wifi.py' para renovar."))
+        else:
+            out.append(_item("wifi", "Acesso pelo celular", "ok",
+                             f"Wi-Fi com HTTPS: https://{ips[0] if ips else '?'}:{current_app.config['HTTPS_PORT']} "
+                             f"(certificado válido por mais {info['days_left']} dias)."))
+
     # Segurança
     host = current_app.config["HOST"]
     if host not in ("127.0.0.1", "localhost") and not current_app.config["API_ACCESS_KEY"]:

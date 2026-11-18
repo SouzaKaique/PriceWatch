@@ -11,7 +11,7 @@
 ![Flask](https://img.shields.io/badge/Flask-3-000000?style=flat-square&logo=flask&logoColor=white)
 ![SQLite](https://img.shields.io/badge/SQLite-local-003b57?style=flat-square&logo=sqlite&logoColor=white)
 ![PWA](https://img.shields.io/badge/PWA-instalável-5a0fc8?style=flat-square&logo=pwa&logoColor=white)
-![Testes](https://img.shields.io/badge/testes-108_passando-a3e635?style=flat-square)
+![Testes](https://img.shields.io/badge/testes-127_passando-a3e635?style=flat-square)
 ![Custo](https://img.shields.io/badge/custo-R$_0-a3e635?style=flat-square)
 
 [Destaques](#-destaques) · [Capturas](#-capturas) · [Como funciona](#-como-funciona) · [Início rápido](#-início-rápido) · [Celular](#-no-celular) · [Guia completo](docs/GUIA.md)
@@ -31,6 +31,7 @@
 | | |
 |---|---|
 | 🔗 **Cadastro pelo link** | Cole o link do produto e o app preenche nome, marca, modelo, imagem, categoria, preço à vista, a prazo e o preço "de". |
+| 📄 **Importar lista em PDF** | Envie o PDF da sua lista de desejos (ou a página de favoritos da loja "salva como PDF"): o app encontra os produtos, links e preços, você revisa e importa tudo de uma vez. |
 | 🏪 **Várias lojas, um produto** | KaBuM!, Pichau, Mercado Livre e Amazon lado a lado, com sugestão de correspondência (você confirma). |
 | ⏱️ **Monitoramento automático** | Verifica a cada 2 h (ajustável), retoma sozinho depois que o PC liga e nunca perde o histórico. |
 | 🕵️ **Promoções enganosas** | Compara o preço atual com o **preço habitual** coletado e aponta "subiu para depois cair" e preço "de" inflado — sempre explicando o porquê. |
@@ -97,7 +98,7 @@ flowchart LR
     end
     AD -. "consultas leves<br/>(limite por loja)" .-> LOJAS["🛒 Lojas"]
     EV -- "Telegram · ntfy · Web Push" --> CEL["📱 Celular"]
-    CEL -. "Tailscale (HTTPS privado)" .-> API
+    CEL -. "HTTPS no Wi-Fi ou Tailscale" .-> API
 ```
 
 | Loja | Como o preço é obtido | Situação |
@@ -161,13 +162,28 @@ Backend como acima e, em outro terminal, `npm start` na pasta `frontend` → htt
 
 ## 📱 No celular
 
-Para instalar o app e receber notificações, o celular precisa de HTTPS. A forma gratuita e privada é o
-[Tailscale](https://tailscale.com) (plano pessoal grátis): uma rede só entre os seus aparelhos — nada fica exposto na internet.
+O PRICE WATCH vira um app no celular e manda **notificações nativas, sem Telegram** (Web Push). O navegador só exige
+abrir o app por **HTTPS uma vez** para instalar e se inscrever — depois os alertas chegam em qualquer lugar.
 
-1. Instale o Tailscale no PC e no celular, com a mesma conta, e ative **MagicDNS** e **HTTPS** no painel.
-2. No PC: `tailscale serve --bg 5000`
-3. No celular, abra o endereço `https://…ts.net` → **Adicionar à Tela de Início** (iPhone) ou **Instalar app** (Android).
-4. No app: **Alertas → Ativar neste aparelho**.
+### Opção A — Wi-Fi de casa (sem conta, sem serviço externo)
+
+```powershell
+cd backend
+.\.venv\Scripts\python configurar_wifi.py      # gera um certificado só seu e ajusta o .env
+```
+
+1. Reinicie o backend (se o Windows perguntar, permita em **redes privadas**).
+2. No celular, no mesmo Wi-Fi, abra `http://IP-DO-PC:5001` e instale o certificado (a página explica iPhone e Android).
+3. Abra `https://IP-DO-PC:5443` → **Adicionar à Tela de Início** (iPhone) ou **Instalar app** (Android).
+4. No app instalado: **Alertas → Ativar neste aparelho** → **Enviar teste**.
+
+O PC continua em `http://localhost:5000`. A rede exige uma **chave de acesso** (criada pelo script) e o IP/endereço
+aparecem em **Sistema → Acesso pelo celular**.
+
+### Opção B — Tailscale (também abre o app fora de casa)
+
+[Tailscale](https://tailscale.com) (plano pessoal grátis) cria uma rede privada entre os seus aparelhos:
+`tailscale serve --bg 5000` no PC e abra o endereço `https://…ts.net` no celular. Detalhes no [guia](docs/GUIA.md).
 
 ## 🔔 Alertas
 
@@ -175,7 +191,7 @@ Para instalar o app e receber notificações, o celular precisa de HTTPS. A form
 |---|---|---|
 | **Telegram** | grátis | Recomendado: bot criado por você no @BotFather, mensagens com link para a oferta |
 | **ntfy** | grátis, sem conta | Notificação nativa pelo app ntfy, sem cadastro |
-| **Web Push** | grátis | Notificação do próprio app instalado (via Tailscale) |
+| **Web Push** | grátis, sem conta | Notificação do próprio app instalado no celular (Wi-Fi de casa ou Tailscale) |
 
 ```
 PRICE WATCH — Oportunidade encontrada!
@@ -193,7 +209,7 @@ Toque para conferir a oferta
 - **Resiliente:** queda de energia no meio de uma verificação não perde dados; ao religar, a retomada é automática.
 - **Backups diários** do banco (7 últimos), verificação de integridade a cada início e **diagnóstico** na tela Sistema
   ou com `python backend\diagnostico.py`.
-- **Testado:** 98 testes no backend e 10 no frontend — lojas fora do ar, bloqueios, captcha, timeouts, reinício,
+- **Testado:** 117 testes no backend e 10 no frontend — lojas fora do ar, bloqueios, captcha, timeouts, reinício,
   backups, alertas e Web Push — sem acessar a internet.
 
 ```powershell

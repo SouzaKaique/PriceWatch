@@ -1,6 +1,7 @@
 import { DatePipe } from '@angular/common';
 import { Component, OnInit, inject, signal } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
+import { RouterLink } from '@angular/router';
 import { SwPush } from '@angular/service-worker';
 import { firstValueFrom } from 'rxjs';
 
@@ -9,7 +10,7 @@ import { AppSettings, EventKind, NotificationLogEntry, NotificationStatus } from
 
 @Component({
   selector: 'app-alerts-page',
-  imports: [DatePipe],
+  imports: [DatePipe, RouterLink],
   templateUrl: './alerts.html',
 })
 export class AlertsPage implements OnInit {

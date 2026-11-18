@@ -12,6 +12,7 @@ from logging.handlers import RotatingFileHandler
 from pathlib import Path
 
 from app import create_app, scheduler
+from app.startup import LOCAL_HOSTS, backend_path, startup_problems
 
 app = create_app()
 
@@ -40,12 +41,41 @@ if __name__ == "__main__":
     pid_file.write_text(str(os.getpid()))
     atexit.register(lambda: pid_file.unlink(missing_ok=True))
 
-    if app.config["SCHEDULER_ENABLED"]:
+    problems = startup_problems(app.config)
+    if problems:
+        for p in problems:
+            logging.getLogger("pricewatch").error(p)
+            print(p, file=sys.stderr)
+        sys.exit(2)
+
+    cfg = app.config
+    if cfg["SCHEDULER_ENABLED"]:
         scheduler.start(app)
+
+    if cfg["HTTPS_CERT_FILE"]:
+        # Modo Wi-Fi: o PC continua em http://localhost (sem aviso de certificado) e a rede
+        # recebe um servidor HTTPS separado, com o certificado local.
+        import threading
+
+        from werkzeug.serving import make_server
+
+        ssl_context = (str(backend_path(cfg["HTTPS_CERT_FILE"])), str(backend_path(cfg["HTTPS_KEY_FILE"])))
+        https_server = make_server(cfg["HOST"], cfg["HTTPS_PORT"], app, threaded=True, ssl_context=ssl_context)
+        threading.Thread(target=https_server.serve_forever, name="https", daemon=True).start()
+        logging.getLogger("pricewatch").info("HTTPS para o celular em https://%s:%s", cfg["HOST"], cfg["HTTPS_PORT"])
+        if cfg["HOST"] not in LOCAL_HOSTS:
+            from app.services import cert_page
+
+            cert_page.start(cfg["HOST"], cfg["CERT_PAGE_PORT"],
+                            Path(app.instance_path) / "certs" / "pricewatch-ca.crt", cfg["HTTPS_PORT"])
+        local_host = "127.0.0.1"
+    else:
+        local_host = cfg["HOST"]
+
     app.run(
-        host=app.config["HOST"],
-        port=app.config["PORT"],
-        debug=app.config["DEBUG"],
+        host=local_host,
+        port=cfg["PORT"],
+        debug=cfg["DEBUG"],
         use_reloader=False,  # evita iniciar o agendador duas vezes
         threaded=True,
     )

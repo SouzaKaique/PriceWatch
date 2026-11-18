@@ -1,0 +1,218 @@
+<div class="page-header">
+  <div>
+    <a class="small text-muted-pw text-decoration-none" routerLink="/"><i class="bi bi-chevron-left"></i> Dashboard</a>
+    <h1 class="mt-2">Importar lista de desejos</h1>
+    <p class="text-muted-pw small mb-0">
+      Envie o PDF da sua lista e escolha quais produtos o PRICE WATCH deve monitorar.
+    </p>
+  </div>
+  @if (step() !== 'upload') {
+    <button type="button" class="btn btn-outline-secondary btn-sm" (click)="restart()">
+      <i class="bi bi-arrow-counterclockwise me-1"></i>Outra lista
+    </button>
+  }
+</div>
+
+@if (error(); as e) {
+  <div class="alert alert-danger d-flex gap-2" role="alert"><i class="bi bi-exclamation-octagon"></i><div>{{ e }}</div></div>
+}
+
+<!-- 1. Enviar -->
+@if (step() === 'upload') {
+  <div class="row g-3">
+    <div class="col-12 col-lg-7">
+      <section class="card p-3 p-md-4 h-100">
+        <h2 class="eyebrow mb-3">Arquivo PDF</h2>
+        <label class="drop d-block" [class.over]="dragOver()" (dragover)="$event.preventDefault(); dragOver.set(true)"
+          (dragleave)="dragOver.set(false)" (drop)="onDrop($event)">
+          <input type="file" accept="application/pdf,.pdf" class="d-none" (change)="onFile($event)" [disabled]="busy()" />
+          @if (busy()) {
+            <span class="spinner-border text-primary"></span>
+            <div class="mt-2">Lendo a lista…</div>
+          } @else {
+            <i class="bi bi-file-earmark-arrow-up"></i>
+            <div class="fw-semibold mt-2">Arraste o PDF aqui ou toque para escolher</div>
+            <div class="small text-muted-pw">até 20 MB · o arquivo não é guardado, só lido</div>
+          }
+        </label>
+        <div class="small text-muted-pw mt-3">
+          <strong class="text-body">Dica:</strong> abra sua lista de favoritos na loja e use
+          <em>Imprimir → Salvar como PDF</em>. O PRICE WATCH aproveita os <strong>links clicáveis</strong> do PDF
+          (nome + loja de cada produto). Listas digitadas também funcionam: um produto por linha, com ou sem link e
+          preço (ex.: <code>Monitor LG 27GS60F — até R$ 750</code>).
+        </div>
+      </section>
+    </div>
+    <div class="col-12 col-lg-5">
+      <section class="card p-3 p-md-4 h-100">
+        <h2 class="eyebrow mb-3">Ou cole o texto/links</h2>
+        <textarea class="form-control" rows="8" placeholder="Monitor LG 24MS500&#10;https://www.kabum.com.br/produto/…&#10;&#10;Mouse Logitech G502 - até R$ 199,90"
+          aria-label="Lista em texto" [value]="text()" (input)="text.set(value($event))"></textarea>
+        <button type="button" class="btn btn-primary btn-sm mt-3" (click)="readText()" [disabled]="busy() || !text().trim()">
+          <i class="bi bi-magic me-1"></i>Ler lista
+        </button>
+      </section>
+    </div>
+  </div>
+}
+
+<!-- 2. Revisar -->
+@if (step() === 'review' && preview(); as p) {
+  <section class="card p-3 p-md-4 mb-3">
+    <div class="d-flex flex-wrap justify-content-between align-items-center gap-2">
+      <div class="small">
+        <i class="bi bi-file-earmark-text me-1"></i><strong>{{ p.source.name }}</strong>
+        <span class="text-muted-pw">
+          · {{ p.stats.items }} item(ns) encontrados · {{ p.stats.with_links }} com link de loja
+          @if (p.stats.already_monitored) { · {{ p.stats.already_monitored }} já monitorado(s) }
+          @if (p.stats.pages) { · {{ p.stats.pages }} página(s) }
+        </span>
+      </div>
+      <div class="d-flex gap-2">
+        <button type="button" class="btn btn-link btn-sm p-0" (click)="setAll(true)">Marcar todos</button>
+        <button type="button" class="btn btn-link btn-sm p-0" (click)="setAll(false)">Desmarcar</button>
+      </div>
+    </div>
+    @for (w of p.warnings; track w) { <div class="small text-warning mt-2">{{ w }}</div> }
+    @if (identifying()) {
+      <div class="mt-3">
+        <div class="d-flex justify-content-between small mb-1">
+          <span><span class="spinner-border spinner-border-sm me-1"></span>Identificando produtos nas lojas… {{ progress().done }}/{{ progress().total }}</span>
+          <button type="button" class="btn btn-link btn-sm p-0" (click)="stopIdentify()">Parar</button>
+        </div>
+        <div class="progress" style="height: 6px" role="progressbar" [attr.aria-valuenow]="progress().done" [attr.aria-valuemax]="progress().total">
+          <div class="progress-bar" [style.width.%]="progress().total ? (progress().done / progress().total) * 100 : 0"></div>
+        </div>
+        <div class="small text-muted-pw mt-1">Uma consulta a cada ~5 s por loja, para respeitar as lojas. Você pode revisar enquanto isso.</div>
+      </div>
+    }
+  </section>
+
+  <section class="card mb-3">
+    @for (r of rows(); track r.key) {
+      <div class="row-item p-3" [class.off]="!r.checked">
+        <div class="d-flex gap-3 align-items-start">
+          <input class="form-check-input mt-2 flex-shrink-0" type="checkbox" [checked]="r.checked" (change)="toggle(r)"
+            [attr.aria-label]="'Importar ' + r.name" />
+          @if (r.image_url) {
+            <div class="thumb lookup-thumb d-none d-sm-flex"><img [src]="r.image_url" alt="" /></div>
+          }
+          <div class="flex-grow-1 min-w-0">
+            <div class="row g-2 align-items-start">
+              <div class="col-12 col-md-7">
+                <input class="form-control form-control-sm fw-medium" [value]="r.name" (input)="setName(r, value($event))"
+                  aria-label="Nome do produto" [class.is-invalid]="r.checked && !r.name.trim()" />
+              </div>
+              <div class="col-8 col-md-3">
+                <div class="input-group input-group-sm">
+                  <span class="input-group-text">Alvo R$</span>
+                  <input class="form-control tabular" inputmode="decimal" placeholder="opcional" [value]="r.targetInput"
+                    (input)="setTarget(r, value($event))" aria-label="Preço-alvo"
+                    [class.is-invalid]="targetInvalid(r)" />
+                </div>
+              </div>
+              <div class="col-4 col-md-2 small text-muted-pw pt-1">
+                @if (r.price_seen_cents !== null) {
+                  <span title="Preço que aparece no PDF">no PDF: {{ r.price_seen_cents | brl }}</span>
+                  @if (!r.targetInput) {
+                    <button type="button" class="btn btn-link btn-sm p-0 d-block" (click)="useSeenAsTarget(r)">usar como alvo</button>
+                  }
+                }
+              </div>
+            </div>
+
+            <div class="d-flex flex-wrap gap-2 mt-2 align-items-center small">
+              @for (u of r.urls; track u.url) {
+                @let st = statusOf(r, u.url);
+                <span class="store-chip gap-1 py-1" [title]="u.url">
+                  {{ u.store_name }}
+                  @if (u.existing) {
+                    <span class="text-warning">· já monitorado</span>
+                  } @else {
+                    @switch (st.state) {
+                      @case ('loading') { <span class="spinner-border spinner-border-sm ms-1" style="width: .7rem; height: .7rem"></span> }
+                      @case ('ok') {
+                        @if (st.price !== null) { <span class="price-down">· {{ st.price | brl }}</span> }
+                        @else { <span class="text-muted-pw">· identificado</span> }
+                        @if (st.available === false) { <span class="text-warning">· indisponível</span> }
+                      }
+                      @case ('fail') { <span class="text-warning" [title]="st.message">· <i class="bi bi-shield-exclamation"></i> não consultado</span> }
+                    }
+                  }
+                  <button type="button" class="btn btn-link btn-sm p-0 ms-1 text-muted-pw" (click)="removeLink(r, u.url)" aria-label="Remover link">
+                    <i class="bi bi-x"></i>
+                  </button>
+                </span>
+              }
+              <form class="d-flex gap-1" (submit)="$event.preventDefault(); addLink(r)">
+                <input class="form-control form-control-sm" style="width: 15rem; max-width: 60vw" inputmode="url"
+                  [placeholder]="r.urls.length ? '+ link de outra loja' : 'cole o link da loja'" [value]="r.newLink"
+                  (input)="setNewLink(r, value($event))" aria-label="Adicionar link" />
+                @if (r.newLink.trim()) { <button type="submit" class="btn btn-outline-primary btn-sm">Adicionar</button> }
+              </form>
+              @if (r.linkError) { <span class="text-danger">{{ r.linkError }}</span> }
+            </div>
+
+            @for (w of r.warnings; track w) {
+              @if (!(w.startsWith('Sem link') && r.urls.length)) {
+                <div class="small text-muted-pw mt-1"><i class="bi bi-info-circle me-1"></i>{{ w }}</div>
+              }
+            }
+            @if (r.name_source === 'line' && r.line && r.line !== r.name) {
+              <div class="small text-muted-pw mt-1 text-truncate" [title]="r.line">No PDF: “{{ r.line }}”</div>
+            }
+          </div>
+        </div>
+      </div>
+    } @empty {
+      <div class="empty-state"><i class="bi bi-search"></i><p class="small text-muted-pw mt-2 mb-0">Nenhum produto encontrado.</p></div>
+    }
+  </section>
+
+  <div class="footer-bar py-3 px-3 d-flex flex-wrap justify-content-between align-items-center gap-2">
+    <div class="small">
+      <strong>{{ selected().length }}</strong> produto(s) selecionado(s)
+      @if (selectedWithoutLinks()) {
+        <span class="text-warning"> · {{ selectedWithoutLinks() }} sem link (serão criados, mas só monitorados após receber um link)</span>
+      }
+      @if (invalidSelected()) { <span class="text-danger"> · confira nomes e preços destacados</span> }
+    </div>
+    <button type="button" class="btn btn-primary" (click)="doImport()" [disabled]="busy() || !selected().length || invalidSelected() > 0">
+      @if (busy()) { <span class="spinner-border spinner-border-sm me-1"></span> }
+      Importar {{ selected().length }} produto(s)
+    </button>
+  </div>
+}
+
+<!-- 3. Resultado -->
+@if (step() === 'done' && result(); as res) {
+  <section class="card p-3 p-md-4">
+    <h2 class="h5"><i class="bi bi-check2-circle price-down me-2"></i>{{ res.created.length }} produto(s) importado(s)</h2>
+    @if (res.created.length) {
+      <ul class="small mb-3">
+        @for (c of res.created; track c.id) {
+          <li><a [routerLink]="['/produtos', c.id]">{{ c.name }}</a>
+            <span class="text-muted-pw"> · {{ c.offers }} loja(s)@if (c.ignored_links.length) { · {{ c.ignored_links.length }} link(s) já monitorado(s) ignorado(s) }</span></li>
+        }
+      </ul>
+    }
+    @if (res.skipped.length) {
+      <div class="small text-warning mb-2">Ignorados ({{ res.skipped.length }}):
+        @for (s of res.skipped; track s.index) { {{ s.name }} — {{ s.reason }}@if (!$last) {; } }
+      </div>
+    }
+    @if (res.errors.length) {
+      <div class="small text-danger mb-2">Com erro ({{ res.errors.length }}):
+        @for (e of res.errors; track e.index) { {{ e.name || '(sem nome)' }} — {{ errorText(e.fields) }}@if (!$last) {; } }
+      </div>
+    }
+    <p class="small text-muted-pw">
+      Os produtos com link já entram no monitoramento automático; os preços consultados na revisão foram salvos como
+      primeiro ponto do histórico.
+    </p>
+    <div class="d-flex gap-2">
+      <a class="btn btn-primary btn-sm" routerLink="/">Ver no dashboard</a>
+      <button type="button" class="btn btn-outline-secondary btn-sm" (click)="restart()">Importar outra lista</button>
+    </div>
+  </section>
+}

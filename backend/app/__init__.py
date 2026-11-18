@@ -12,6 +12,17 @@ from .config import BASE_DIR, Config
 from .extensions import db
 
 APP_VERSION = "0.1.0"
+LOOPBACK = {"127.0.0.1", "::1"}
+
+
+def is_local_request() -> bool:
+    """Requisição feita neste PC, direto em localhost (não via rede nem via proxy).
+
+    Proxies locais (ex.: Tailscale Serve) mantêm o Host público (*.ts.net) e por isso
+    continuam exigindo a chave.
+    """
+    host = (request.host or "").rsplit(":", 1)[0].strip("[]").lower()
+    return request.remote_addr in LOOPBACK and host in {"localhost", "127.0.0.1", "::1"}
 
 
 def create_app(config_class: type = Config) -> Flask:
@@ -33,6 +44,8 @@ def create_app(config_class: type = Config) -> Flask:
         key = app.config["API_ACCESS_KEY"]
         if not key or request.method == "OPTIONS" or request.path == "/api/health":
             return None
+        if is_local_request():
+            return None  # o próprio computador (localhost) não precisa digitar a chave
         if request.path.startswith("/api/"):
             sent = request.headers.get("X-API-Key", "")
             if not hmac.compare_digest(sent, key):
@@ -45,6 +58,7 @@ def create_app(config_class: type = Config) -> Flask:
 
     from .routes.health import bp as health_bp
     from .routes.coupons import bp as coupons_bp
+    from .routes.importer import bp as importer_bp
     from .routes.integrations import bp as integrations_bp
     from .routes.monitor import bp as monitor_bp
     from .routes.notifications import bp as notifications_bp
@@ -56,6 +70,7 @@ def create_app(config_class: type = Config) -> Flask:
     app.register_blueprint(monitor_bp, url_prefix="/api")
     app.register_blueprint(coupons_bp, url_prefix="/api")
     app.register_blueprint(notifications_bp, url_prefix="/api")
+    app.register_blueprint(importer_bp, url_prefix="/api")
 
     # Por último: o PWA responde a tudo que não for /api
     from .routes.spa import bp as spa_bp

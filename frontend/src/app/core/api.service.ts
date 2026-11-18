@@ -3,12 +3,15 @@ import { Injectable, inject } from '@angular/core';
 import { Observable } from 'rxjs';
 
 import {
+  AccessInfo,
   AppSettings,
   Coupon,
   CouponInput,
   CouponSources,
   DiagnosticItem,
   HealthResponse,
+  ImportPreview,
+  ImportResult,
   MonitorStatus,
   NotificationLogEntry,
   NotificationStatus,
@@ -46,6 +49,24 @@ export class ApiService {
 
   diagnostics(): Observable<{ status: DiagnosticItem['status']; items: DiagnosticItem[] }> {
     return this.http.get<{ status: DiagnosticItem['status']; items: DiagnosticItem[] }>(`${this.base}/diagnostics`);
+  }
+
+  access(): Observable<AccessInfo> {
+    return this.http.get<AccessInfo>(`${this.base}/access`);
+  }
+
+  parseImportFile(file: File): Observable<ImportPreview> {
+    const form = new FormData();
+    form.append('file', file, file.name);
+    return this.http.post<ImportPreview>(`${this.base}/import/parse`, form);
+  }
+
+  parseImportText(text: string): Observable<ImportPreview> {
+    return this.http.post<ImportPreview>(`${this.base}/import/parse`, { text });
+  }
+
+  importProducts(items: ProductInput[]): Observable<ImportResult> {
+    return this.http.post<ImportResult>(`${this.base}/products/import`, { items });
   }
 
   stores(): Observable<Store[]> {

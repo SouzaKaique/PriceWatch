@@ -4,7 +4,7 @@ import { forkJoin } from 'rxjs';
 
 import { ApiService, HealthResponse, StatsResponse, describeError } from '../../core/api.service';
 import { centsToInput, parseBRL } from '../../core/money';
-import { AppSettings, DiagnosticItem, MonitorStatus } from '../../core/models';
+import { AccessInfo, AppSettings, DiagnosticItem, MonitorStatus } from '../../core/models';
 
 /** Saúde do sistema + configurações e execuções do monitoramento. */
 @Component({
@@ -27,6 +27,7 @@ export class StatusPage implements OnInit, OnDestroy {
   protected readonly settings = signal<AppSettings | null>(null);
   protected readonly checkedAt = signal<Date | null>(null);
   protected readonly diagnostics = signal<DiagnosticItem[]>([]);
+  protected readonly access = signal<AccessInfo | null>(null);
 
   protected readonly saving = signal(false);
   protected readonly saveMsg = signal<{ ok: boolean; text: string } | null>(null);
@@ -52,6 +53,7 @@ export class StatusPage implements OnInit, OnDestroy {
     this.loading.set(true);
     this.error.set(null);
     this.api.diagnostics().subscribe({ next: (d) => this.diagnostics.set(d.items), error: () => this.diagnostics.set([]) });
+    this.api.access().subscribe({ next: (a) => this.access.set(a), error: () => this.access.set(null) });
     forkJoin({
       health: this.api.health(),
       stats: this.api.stats(),

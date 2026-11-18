@@ -415,3 +415,55 @@ export interface DiagnosticItem {
   detail: string;
   hint: string | null;
 }
+
+export interface AccessInfo {
+  mode: 'local' | 'wifi' | 'rede_sem_https';
+  https: boolean;
+  host: string;
+  port: number;
+  lan_ips: string[];
+  app_urls: string[];
+  cert_page_urls: string[];
+  certificate: { ips: string[]; names: string[]; expires_at: string; days_left: number } | null;
+  certificate_covers_ips: boolean;
+  access_key_required: boolean;
+}
+
+export interface ImportUrl {
+  url: string;
+  store: StoreKey;
+  store_name: string;
+  existing: { product_id: number; name: string } | null;
+}
+
+export interface ImportItem {
+  key: string;
+  name: string;
+  name_source: 'link_text' | 'line' | 'url';
+  urls: ImportUrl[];
+  price_seen_cents: number | null;
+  target_price_cents: number | null;
+  line: string;
+  checked: boolean;
+  warnings: string[];
+}
+
+export interface ImportPreview {
+  source: { type: 'pdf' | 'text'; name: string };
+  stats: {
+    pages: number | null;
+    links: number | null;
+    product_links: number | null;
+    items: number;
+    with_links: number;
+    already_monitored: number;
+  };
+  items: ImportItem[];
+  warnings: string[];
+}
+
+export interface ImportResult {
+  created: { index: number; id: number; name: string; offers: number; ignored_links: string[] }[];
+  skipped: { index: number; name: string | null; reason: string }[];
+  errors: { index: number; name: string | null; fields: Record<string, string> }[];
+}

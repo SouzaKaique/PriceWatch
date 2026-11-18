@@ -112,3 +112,33 @@ def diagnostics():
     worst = "error" if any(i["status"] == "error" for i in items) else (
         "warn" if any(i["status"] == "warn" for i in items) else "ok")
     return jsonify({"status": worst, "items": items})
+
+
+@bp.get("/access")
+def access():
+    """Como abrir o app pelo celular (sem expor a chave de acesso)."""
+    from pathlib import Path as _Path
+
+    from ..services import lan
+    from ..startup import LOCAL_HOSTS
+
+    cfg = current_app.config
+    https = bool(cfg["HTTPS_CERT_FILE"])
+    exposed = cfg["HOST"] not in LOCAL_HOSTS
+    ips = lan.lan_ips()
+    certs = lan.CertPaths(_Path(current_app.instance_path) / "certs")
+    info = lan.cert_info(certs.server_cert)
+    mode = "wifi" if https and exposed else ("rede_sem_https" if exposed else "local")
+    port = cfg["HTTPS_PORT"] if https else cfg["PORT"]
+    return jsonify({
+        "mode": mode,
+        "https": https,
+        "host": cfg["HOST"],
+        "port": port,
+        "lan_ips": ips,
+        "app_urls": [f"https://{ip}:{port}/" for ip in ips] if mode == "wifi" else [],
+        "cert_page_urls": [f"http://{ip}:{cfg['CERT_PAGE_PORT']}/" for ip in ips] if mode == "wifi" else [],
+        "certificate": info,
+        "certificate_covers_ips": bool(info) and all(ip in info["ips"] for ip in ips),
+        "access_key_required": bool(cfg["API_ACCESS_KEY"]),
+    })

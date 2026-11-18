@@ -117,9 +117,8 @@ def list_products():
     return jsonify([product_payload(p) for p in products])
 
 
-@bp.post("/products")
-def create_product():
-    data = request.get_json(silent=True) or {}
+def build_product(data: dict) -> tuple[Product | None, dict]:
+    """Valida e monta um produto (com ofertas) a partir do JSON. Não grava."""
     product = Product()
     errors = _apply_product_fields(product, data, partial=False)
 
@@ -138,14 +137,23 @@ def create_product():
                 continue
             seen.add(clean["url"])
             product.offers.append(Offer(**clean))
+    return (None, errors) if errors else (product, {})
 
-    if errors:
-        return _errors(errors)
+
+def save_new_product(product: Product) -> None:
     db.session.add(product)
     for offer in product.offers:
         lookup_svc.seed_offer_from_cache(offer)  # sem nova requisição à loja
     db.session.flush()
     coupons_svc.events_for_new_product(product)
+
+
+@bp.post("/products")
+def create_product():
+    product, errors = build_product(request.get_json(silent=True) or {})
+    if errors:
+        return _errors(errors)
+    save_new_product(product)
     db.session.commit()
     notify.dispatch_soon()
     return jsonify(product_payload(product)), 201
