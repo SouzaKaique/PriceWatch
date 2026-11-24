@@ -5,6 +5,7 @@ o produto, o backend reaproveita esse resultado (o navegador nunca envia preços
 """
 from __future__ import annotations
 
+import re
 import threading
 import time
 
@@ -72,10 +73,27 @@ def lookup(url: str, use_cache: bool = True) -> ProductData:
     return data
 
 
+_URL_LIKE = re.compile(
+    r"(?:https?://)?(?:www\.)?[a-z0-9-]+(?:\.[a-z0-9-]+)*\.(?:com|br|net|org|io|me|ly|to|co|app|shop|store)"
+    r"(?:\.[a-z]{2})?(?:/\S*)?",
+    re.I,
+)
+
+
+def looks_like_url(text: str | None) -> bool:
+    """Texto que é só um endereço (ex.: "kabum.com.br/produto/620992/monitor-..."), não um nome."""
+    return bool(text) and " " not in text.strip() and bool(_URL_LIKE.fullmatch(text.strip()))
+
+
 def fill_product_from_store(product, data: ProductData) -> None:
-    """Completa só o que estiver vazio no produto (foto, marca, modelo, categoria) com dados da loja."""
+    """Completa só o que estiver vazio no produto (foto, marca, modelo, categoria) com dados da loja.
+
+    O nome escolhido pelo usuário é mantido; só é trocado quando é apenas um endereço.
+    """
     if product is None:
         return
+    if data.name and looks_like_url(product.name):
+        product.name = data.name.strip()[:200]
     for field, value in (("image_url", data.image_url), ("brand", data.brand),
                          ("model", data.model), ("category", data.category)):
         if value and not getattr(product, field):

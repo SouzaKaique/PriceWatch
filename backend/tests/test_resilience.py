@@ -266,7 +266,7 @@ def test_diagnostics_endpoint(client, fake_web):
     keys = {i["key"]: i for i in d["items"]}
     assert keys["database"]["status"] == "ok"
     assert keys["scheduler"]["status"] == "error"  # nos testes o agendador não roda
-    assert keys["notifications"]["status"] == "warn" and keys["notifications"]["hint"]
+    assert keys["notifications"]["status"] == "ok" and "opcional" in keys["notifications"]["detail"]
     assert keys["security"]["status"] == "ok"
     assert d["status"] == "error"
 

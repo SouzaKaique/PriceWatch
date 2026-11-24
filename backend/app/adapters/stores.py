@@ -132,6 +132,8 @@ class MercadoLivreAdapter(StructuredDataAdapter):
     _item = re.compile(r"(?<![A-Z])MLB-?(\d{6,})", re.I)
     _catalog = re.compile(r"/p/(MLB\d{5,})", re.I)
     _wid = re.compile(r"[?&#](?:wid|item_id)=(MLB\d{6,})", re.I)
+    # links de "produto do usuário" (/up/MLBU…) trazem o anúncio só em pdp_filters=item_id:MLB…
+    _pdp = re.compile(r"item_id(?:%3A|:)(MLB\d{6,})", re.I)
     _categories: dict[str, str] = {}
 
     @property
@@ -149,7 +151,11 @@ class MercadoLivreAdapter(StructuredDataAdapter):
             item = wid.group(1).upper()
         elif not cat:
             m = self._item.search(url)
-            item = f"MLB{m.group(1)}" if m else None
+            if m:
+                item = f"MLB{m.group(1)}"
+            else:
+                pdp = self._pdp.search(url)
+                item = pdp.group(1).upper() if pdp else None
         return item, (cat.group(1).upper() if cat else None)
 
     def extract_id(self, url: str) -> str | None:
@@ -157,9 +163,12 @@ class MercadoLivreAdapter(StructuredDataAdapter):
         return item or catalog
 
     def canonical_url(self, url: str) -> str:
-        return re.sub(r"[?#].*$", "", url.strip()) + (
-            f"?wid={self.ids(url)[0]}" if self._catalog.search(url) and self._wid.search(url) else ""
-        )
+        base = re.sub(r"[?#].*$", "", url.strip())
+        item = self.ids(url)[0]
+        keep = self._catalog.search(url) and self._wid.search(url)
+        # sem código no caminho (ex.: /up/MLBU…): guarda o anúncio para não perdê-lo
+        keep = keep or (item and not self._catalog.search(base) and not self._item.search(base))
+        return base + (f"?wid={item}" if keep else "")
 
     # ---- API oficial --------------------------------------------------------
 

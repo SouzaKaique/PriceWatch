@@ -11,7 +11,7 @@
 ![Flask](https://img.shields.io/badge/Flask-3-000000?style=flat-square&logo=flask&logoColor=white)
 ![SQLite](https://img.shields.io/badge/SQLite-local-003b57?style=flat-square&logo=sqlite&logoColor=white)
 ![PWA](https://img.shields.io/badge/PWA-instalável-5a0fc8?style=flat-square&logo=pwa&logoColor=white)
-![Testes](https://img.shields.io/badge/testes-136_passando-a3e635?style=flat-square)
+![Testes](https://img.shields.io/badge/testes-139_passando-a3e635?style=flat-square)
 ![Custo](https://img.shields.io/badge/custo-R$_0-a3e635?style=flat-square)
 
 [Destaques](#-destaques) · [Capturas](#-capturas) · [Como funciona](#-como-funciona) · [Início rápido](#-início-rápido) · [Celular](#-no-celular) · [Guia completo](docs/GUIA.md)
@@ -210,7 +210,7 @@ Toque para conferir a oferta
 - **Resiliente:** queda de energia no meio de uma verificação não perde dados; ao religar, a retomada é automática.
 - **Backups diários** do banco (7 últimos), verificação de integridade a cada início e **diagnóstico** na tela Sistema
   ou com `python backend\diagnostico.py`.
-- **Testado:** 122 testes no backend e 14 no frontend — lojas fora do ar, bloqueios, captcha, timeouts, reinício,
+- **Testado:** 125 testes no backend e 14 no frontend — lojas fora do ar, bloqueios, captcha, timeouts, reinício,
   backups, alertas e Web Push — sem acessar a internet.
 
 ```powershell

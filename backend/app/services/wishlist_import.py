@@ -6,6 +6,9 @@ O que é aproveitado do PDF
 - **Links escritos no texto** (https://...).
 - **Linhas com nomes de produtos**, com ou sem preço (ex.: "Monitor LG 27GS60F - R$ 899").
 - **Preço visto** perto do produto e **preço-alvo** quando a linha diz "até / alvo / máx".
+- **Listas em cartões** (apps de lista de desejos): título com valor, linhas de status
+  ("Desejado · Prioridade alta · Adicionado em…"), meta de economia ("Guardado R$ 0 de R$ 300",
+  que vira o preço-alvo) e o link logo abaixo, mesmo quando o texto do link é só o endereço.
 
 Somente links de página de produto das lojas suportadas viram ofertas; menus, rodapés,
 carrinho e afins são descartados. Nada é cadastrado aqui: o resultado vai para a tela de
@@ -44,7 +47,14 @@ NOISE_WORDS = [
     "indisponivel", "a vista", "no pix", "sem juros", "vendido por", "entregue por", "avise-me", "avaliacoes",
     "mais vendidos", "politica de privacidade", "termos de uso", "fale conosco", "atendimento", "minha conta",
     "entrar", "cadastre-se", "subtotal", "total", "cupom", "desconto", "pagina", "imprimir", "baixar app",
+    "valor total", "ja guardado", "guardado", "itens", "onde comprar", "links", "observacoes",
 ]
+# Linhas de status/metadados de apps de lista ("Desejado · Prioridade alta · Adicionado em 12/11/2026")
+META_HINT = re.compile(
+    r"\b(adicionad[oa]|exportad[oa]|criad[oa]|atualizad[oa]|salv[oa]|incluid[oa])\s+em\s+\d{1,2}/\d{1,2}"
+    r"|\bprioridade\s+(alta|media|baixa)\b|^(ja\s+)?guardad[oa]\b|\(\s*\d{1,3}\s*%\s*\)$"
+)
+SAVINGS_GOAL = re.compile(r"\bguardad[oa]\b.*\bde\b")
 NON_PRODUCT_PATHS = {
     "", "carrinho", "cart", "login", "conta", "minha-conta", "favoritos", "lista-de-desejos", "wishlist",
     "busca", "search", "s", "ofertas", "cupons", "hotsite", "promocao", "institucional", "ajuda", "atendimento",
@@ -60,6 +70,7 @@ class Item:
     target_price_cents: int | None = None
     line: str = ""
     score: int = 0
+    other_links: list[str] = field(default_factory=list)  # links que não são de loja suportada
 
 
 class ImportError_(Exception):  # noqa: N801 (evita conflito com o builtin ImportError)
@@ -120,9 +131,14 @@ def name_from_url(url: str) -> str | None:
     return " ".join(w if any(c.isdigit() for c in w) and w.isupper() else w.capitalize() for w in words)[:200]
 
 
-def _is_noise(text: str) -> bool:
+def _is_noise(text: str, priced: bool = False) -> bool:
+    """priced=True: a linha tinha um preço junto (ex.: "R$ 600,00Mesa"), então nomes curtos valem."""
     t = _norm(text).strip(" -•·|*")
-    if len(t) < 6 or len(t) > 180:
+    if len(t) < (3 if priced else 6) or len(t) > 180:
+        return True
+    if lookup_svc.looks_like_url(text):
+        return True  # texto de link ("kabum.com.br/produto/…") não é nome de produto
+    if META_HINT.search(t):
         return True
     if PRICE_RE.fullmatch(text.strip()) or re.fullmatch(r"[\d\s.,/%x-]+", t):
         return True
@@ -131,7 +147,8 @@ def _is_noise(text: str) -> bool:
     if re.search(r"\d{1,2}/\d{1,2}/\d{2,4}", t) and len(t) < 30:
         return True
     words = re.findall(r"[a-z0-9]*[a-z][a-z0-9]*", t)  # "g502" conta como palavra
-    if len([w for w in words if len(w) >= 2]) < 2 and not (words and any(c.isdigit() for c in t)):
+    min_words = 1 if priced else 2
+    if len([w for w in words if len(w) >= 2]) < min_words and not (words and any(c.isdigit() for c in t)):
         return True
     if FOOTER_HINT.search(t):
         return True  # rodapés e avisos legais em qualquer parte da linha
@@ -239,6 +256,7 @@ def _price_near(chunks, rect) -> int | None:
 def parse_pdf(data: bytes) -> tuple[list[Item], dict]:
     pages = _pdf_pages(data)
     link_items: dict[str, Item] = {}
+    link_labels: dict[str, str] = {}  # texto do link que é só o endereço → link completo
     text_parts: list[str] = []
     total_links = 0
     for page in pages:
@@ -250,10 +268,12 @@ def parse_pdf(data: bytes) -> tuple[list[Item], dict]:
         for uri, rect in _page_links(page):
             total_links += 1
             url = clean_url(uri)
+            label = _text_in_rect(chunks, rect)
+            if label and lookup_svc.looks_like_url(label):
+                link_labels[_norm(label)] = url
             if not is_product_url(url):
                 continue
             key = lookup_svc.canonical(url)
-            label = _text_in_rect(chunks, rect)
             label = PRICE_RE.sub("", label).strip(" -–|·") if label else ""
             good_label = label and not _is_noise(label)
             item = link_items.get(key)
@@ -271,8 +291,10 @@ def parse_pdf(data: bytes) -> tuple[list[Item], dict]:
     text = "\n".join(text_parts)
     known = set(link_items)
     names = {_norm(it.name) for it in link_items.values() if it.name_source == "link_text"}
-    text_items = parse_text(text, skip_urls=known, skip_names=names)
-    items = list(link_items.values()) + text_items
+    consumed: set[str] = set()
+    text_items = parse_text(text, skip_urls=known, skip_names=names, link_labels=link_labels, consumed=consumed)
+    # links que o texto já juntou ao título do cartão não viram itens separados
+    items = [it for key, it in link_items.items() if key not in consumed] + text_items
     stats = {"pages": len(pages), "links": total_links, "product_links": len(link_items),
              "has_text": bool(text.strip())}
     if not stats["has_text"] and not link_items:
@@ -289,9 +311,14 @@ def _same_as_known(name: str, known: set[str]) -> bool:
     return n in known or any(len(n) > 10 and (n in k or k in n) for k in known)
 
 
-def parse_text(text: str, skip_urls: set[str] | None = None, skip_names: set[str] | None = None) -> list[Item]:
+def parse_text(text: str, skip_urls: set[str] | None = None, skip_names: set[str] | None = None,
+               link_labels: dict[str, str] | None = None, consumed: set[str] | None = None) -> list[Item]:
+    """link_labels: texto de link que é só o endereço → link completo (vindo das anotações do PDF).
+    consumed: recebe as URLs canônicas que foram juntadas a um título (não viram item próprio)."""
     skip_urls = skip_urls or set()
     skip_names = skip_names or set()
+    link_labels = link_labels or {}
+    consumed = consumed if consumed is not None else set()
     items: list[Item] = []
     lines = [re.sub(r"\s+", " ", ln).strip() for ln in text.splitlines()]
     lines = [ln for ln in lines if ln]
@@ -299,6 +326,19 @@ def parse_text(text: str, skip_urls: set[str] | None = None, skip_names: set[str
     prev_was_item_line = False
 
     for ln in lines:
+        if lookup_svc.looks_like_url(ln) and not URL_RE.match(ln):
+            # Endereço escrito sem "https://" (texto de link em cartões): pertence ao último título
+            url = link_labels.get(_norm(ln)) or "https://" + ln.rstrip(".…")
+            if last_name_item is not None:
+                if is_product_url(url):
+                    if detect_store(url) not in {detect_store(u) for u in last_name_item.urls}:
+                        last_name_item.urls.append(url)
+                        consumed.add(lookup_svc.canonical(url))
+                else:
+                    last_name_item.other_links.append(url)
+            prev_was_item_line = False
+            continue
+
         urls = [clean_url(u) for u in URL_RE.findall(ln)]
         product_urls = [u for u in urls if is_product_url(u) and lookup_svc.canonical(u) not in skip_urls]
         rest = URL_RE.sub("", ln).strip(" -–|·:")
@@ -313,7 +353,16 @@ def parse_text(text: str, skip_urls: set[str] | None = None, skip_names: set[str
             prev_was_item_line = False
             continue  # link que não é de produto (ou já veio das anotações)
 
-        if product_urls and (not name_part or _is_noise(name_part)):
+        priced = bool(prices)
+        if last_name_item is not None and prices and SAVINGS_GOAL.search(_norm(rest)):
+            # "Guardado R$ 0,00 de R$ 300,00": o valor planejado vira o preço-alvo do item
+            if last_name_item.target_price_cents is None:
+                last_name_item.target_price_cents = prices[-1]
+                if last_name_item.price_seen_cents == prices[-1]:
+                    last_name_item.price_seen_cents = None  # era o mesmo valor, não um preço de loja
+            continue
+
+        if product_urls and (not name_part or _is_noise(name_part, priced)):
             # Só link(s): junta ao nome logo acima, se for outra loja; senão vira item próprio
             if last_name_item and prev_was_item_line:
                 stores_in = {detect_store(u) for u in last_name_item.urls}
@@ -333,7 +382,7 @@ def parse_text(text: str, skip_urls: set[str] | None = None, skip_names: set[str
             prev_was_item_line = False
             continue  # mesmo produto que já veio de um link clicável
 
-        if not name_part or _is_noise(name_part):
+        if not name_part or _is_noise(name_part, priced):
             # linha só com preço: pertence ao item anterior
             if prices and last_name_item and prev_was_item_line and last_name_item.price_seen_cents is None \
                     and last_name_item.target_price_cents is None:
@@ -386,6 +435,14 @@ def build_preview(items: list[Item], existing: dict[str, dict], existing_names: 
             warnings.append("Sem link de loja: cole um link para o produto ser monitorado.")
         if all_existing:
             warnings.append("Já monitorado.")
+        for other in dict.fromkeys(it.other_links):
+            host = (urlparse(other).hostname or other).removeprefix("www.")
+            store = detect_store(other)
+            if store:
+                warnings.append(f"O link da {STORES[store]['name']} está incompleto no PDF — cole o link completo.")
+            elif not has_link:
+                warnings.append(f"O link ({host}) não é de uma loja suportada — cole um link da KaBuM!, "
+                                "Pichau, Mercado Livre ou Amazon.")
         if it.name_source == "url":
             warnings.append("Nome provisório (tirado do link) — será trocado pelo da loja ao identificar.")
         out.append({

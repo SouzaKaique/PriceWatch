@@ -175,3 +175,91 @@ def test_name_only_item_already_registered_is_not_reselected(client):
     assert items["Headset HyperX Cloud III"]["checked"] is False
     assert "Já existe um produto com este nome." in items["Headset HyperX Cloud III"]["warnings"]
     assert items["SSD Kingston NV3 1TB"]["checked"] is True
+
+
+def card_wishlist_pdf() -> bytes:
+    """Lista exportada por um app de desejos: cartões com valor, status, meta e o endereço como texto do link."""
+    mesa = ("https://www.mercadolivre.com.br/mesa-para-computador-3-gavetas/up/MLBU5672893632"
+            "?pdp_filters=item_id%3AMLB5451144627&from=gshop&gclid=abc")
+    return make_pdf([{
+        "texts": [
+            (40, 800, 16, "Wishlist"),
+            (40, 780, 9, "Fulano de Tal · Em aberto · exportada em 17/11/2026"),
+            (40, 760, 9, "Itens"), (40, 748, 12, "3"),
+            (140, 760, 9, "Valor total"), (140, 748, 12, "R$ 1.900,00"),
+            (260, 760, 9, "Já guardado"), (260, 748, 12, "R$ 0,00"),
+            (40, 700, 12, "R$ 1.000,00Monitor LG"),
+            (40, 686, 9, "Desejado · Prioridade alta · Outros · Adicionado em 17/11/2026"),
+            (40, 672, 9, "Guardado R$ 0,00 de R$ 1.000,00 (0%)"),
+            (40, 658, 8, "ONDE COMPRAR"),
+            (40, 644, 9, "kabum.com.br/produto/620992/monitor-gamer-lg-ultragear-27-fhd-180hz..."),
+            (40, 600, 12, "R$ 300,00Cadeira"),
+            (40, 586, 9, "Desejado · Prioridade alta · Outros · Adicionado em 12/11/2026"),
+            (40, 572, 9, "Guardado R$ 0,00 de R$ 300,00 (0%)"),
+            (40, 558, 8, "ONDE COMPRAR"),
+            (40, 544, 9, "vt.tiktok.com/ZS9f9Ajuv9uqx-F6AO3"),
+            (40, 500, 12, "R$ 600,00Mesa"),
+            (40, 486, 9, "Desejado · Prioridade média · Adicionado em 12/11/2026"),
+            (40, 472, 9, "Guardado R$ 0,00 de R$ 600,00 (0%)"),
+            (40, 458, 8, "ONDE COMPRAR"),
+            (40, 444, 9, "mercadolivre.com.br/mesa-para-computador-3-gavetas..."),
+            (40, 40, 8, "MONETTA · Wishlist · Em aberto 1/1"),
+        ],
+        "links": [
+            ((38, 641, 400, 652), "https://www.kabum.com.br/produto/620992/monitor-gamer-lg-ultragear-27"
+                                  "?utm_source=chatgpt.com"),
+            ((38, 541, 260, 552), "https://vt.tiktok.com/ZS9f9Ajuv9uqx-F6AO3/"),
+            ((38, 441, 330, 452), mesa),
+        ],
+    }])
+
+
+def test_card_style_wishlist_pairs_title_link_and_goal(client):
+    r = client.post("/api/import/parse", data={"file": (io.BytesIO(card_wishlist_pdf()), "wishlist.pdf")},
+                    content_type="multipart/form-data")
+    assert r.status_code == 200, r.get_json()
+    items = r.get_json()["items"]
+    # nem cabeçalho, nem status, nem "Guardado…", nem o texto do link viram produtos
+    assert [i["name"] for i in items] == ["Monitor LG", "Cadeira", "Mesa"]
+    mon, cadeira, mesa = items
+    assert [u["url"] for u in mon["urls"]] == ["https://www.kabum.com.br/produto/620992"]
+    # o valor da meta ("Guardado R$ 0 de R$ 1.000") vira alvo — não é preço de loja
+    assert mon["target_price_cents"] == 100000 and mon["price_seen_cents"] is None
+    assert cadeira["urls"] == [] and cadeira["target_price_cents"] == 30000
+    assert any("vt.tiktok.com" in w and "não é de uma loja suportada" in w for w in cadeira["warnings"])
+    assert [u["url"] for u in mesa["urls"]] == [
+        "https://www.mercadolivre.com.br/mesa-para-computador-3-gavetas/up/MLBU5672893632?wid=MLB5451144627"]
+    assert all(i["checked"] for i in items)
+
+
+def test_url_only_names_are_replaced_by_the_store_title():
+    from app.adapters import ProductData
+    from app.models import Product
+    from app.services import lookup
+
+    assert lookup.looks_like_url("kabum.com.br/produto/620992/monitor-gamer-lg...")
+    assert lookup.looks_like_url("amazon.com.br/dp/B09DV8WKK8")
+    assert not lookup.looks_like_url("Monitor LG 27GS60F")
+    assert not lookup.looks_like_url("Placa de Vídeo RTX 5060")
+    data = ProductData(store="kabum", url="https://www.kabum.com.br/produto/620992",
+                       name="Monitor Gamer LG UltraGear 27\" 180Hz")
+    p = Product(name="kabum.com.br/produto/620992/monitor-gamer-lg-ultragear-27-fhd-180hz...")
+    lookup.fill_product_from_store(p, data)
+    assert p.name == "Monitor Gamer LG UltraGear 27\" 180Hz"
+    mine = Product(name="Monitor do quarto")
+    lookup.fill_product_from_store(mine, data)
+    assert mine.name == "Monitor do quarto"  # nome escolhido pelo usuário fica
+
+
+def test_mercadolivre_user_product_links_keep_the_listing():
+    from app.adapters import get_adapter
+
+    ml = get_adapter("mercadolivre")
+    up = "https://www.mercadolivre.com.br/mesa/up/MLBU5672893632?pdp_filters=item_id%3AMLB5451144627&x=1"
+    assert ml.extract_id(up) == "MLB5451144627"
+    assert ml.canonical_url(up).endswith("/up/MLBU5672893632?wid=MLB5451144627")
+    assert wl.is_product_url(up)
+    # links comuns não mudam
+    assert ml.canonical_url(ML) == ML
+    assert ml.canonical_url("https://www.mercadolivre.com.br/hub/p/MLB24769982?pdp_filters=item_id%3AMLB5354650863") \
+        == "https://www.mercadolivre.com.br/hub/p/MLB24769982"

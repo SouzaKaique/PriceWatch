@@ -94,8 +94,9 @@ def run(include_scheduler: bool = True) -> list[dict]:
     failures = db.session.scalar(db.select(func.count(NotificationLog.id)).where(
         NotificationLog.delivered.is_(False), NotificationLog.created_at >= now - timedelta(days=1))) or 0
     if not ready:
-        out.append(_item("notifications", "Alertas no celular", "warn", "Nenhum canal configurado.",
-                         "Configure Telegram, ntfy ou Web Push em Alertas."))
+        # opcional: sem canais, os produtos com preço bom aparecem em destaque no início do app
+        out.append(_item("notifications", "Alertas no celular", "ok",
+                         "Desligados (opcional) — preços bons aparecem em destaque no início do app.", None))
     else:
         names = {"telegram": "Telegram", "ntfy": "ntfy", "webpush": f"Web Push ({webpush.count()} aparelho(s))"}
         status = "warn" if failures else "ok"
